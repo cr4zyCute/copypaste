@@ -22,193 +22,159 @@ export const MessageCleaner: React.FC = () => {
     const doc = parser.parseFromString(html, 'text/html');
     const body = doc.body;
 
-    // Remove unwanted tags first to prevent CSS rules from appearing as text
-    const unwantedTags = body.querySelectorAll('style, script, head, meta, title, link');
-    unwantedTags.forEach(tag => tag.parentNode?.removeChild(tag));
-
-    // 0. Strip styles and classes to fix Word paste issues (white background, colors, etc.)
-    const allNodes = body.querySelectorAll('*');
-    allNodes.forEach(node => {
-      node.removeAttribute('style');
-      node.removeAttribute('class');
-      // Also unwrap spans if they have no attributes left? 
-      // Actually removing style is enough, span without style is just text container.
-    });
-
-    // Helper to process text nodes
+    // Helper to process text content
     const processText = (text: string) => {
       let processed = text;
       
       // 1. Remove bullets (•, -, *, etc. at start of lines or standalone)
-      // Expanded to include other common bullet characters
       processed = processed.replace(/^[\s]*[•\-*⋅‧∙◦○●⦿⦾➢➣➤][\s]*/gm, '');
+      // Also remove any standalone bullets that might be left in the middle of text if they look like list items
+      processed = processed.replace(/[\r\n]+[\s]*[•\-*⋅‧∙◦○●⦿⦾➢➣➤][\s]*/g, '\n');
       
       // 2. Remove "View [Name]’s profile[Name]" pattern
-      // Stop before http, newline, or end of string
-      // Updated to handle possessive s optionally (e.g. Francis' profile)
       processed = processed.replace(/View .*?[’']s? profile.*?(?=\s*https?:\/\/|\r?\n|$)/gim, '');
       
       // 3. Remove emojis
-      processed = processed.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+      processed = processed.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F400}-\u{1F4FF}]/gu, '');
       
-      // 4. Remove "sent the following message at..." pattern
-      // Matches " sent the following message at " followed by time (e.g. 12:34 AM)
-      processed = processed.replace(/ sent the following messages? at \d{1,2}:\d{2} [AP]M/gi, '');
+      // 4. Uppercase Dates (e.g. Sep 4, 2025 -> SEP 4, 2025)
+      processed = processed.replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}(?:,\s+\d{4})?/gi, (match) => match.toUpperCase());
 
       return processed;
     };
 
-    // Traverse and clean text nodes
-    const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT);
-    const textNodes: Node[] = [];
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-      textNodes.push(node);
-    }
-
-    // Process each text node
-    textNodes.forEach(node => {
-      if (node.nodeValue) {
-        node.nodeValue = processText(node.nodeValue);
-      }
-    });
-
-    // 4a. Fix "Stuck Date" (Split Date and Name) - DOM Aware
-    // Look for text nodes that end with Year (4 digits) and next text node starts with Letter
-    // Or single text node containing Year+Letter
+    // Flatten the DOM into a list of Text nodes, Links, and Breaks
+    // This ensures no block elements (div, p, ul, li) remain to confuse pasting
+    const flatNodes: (Node | string)[] = [];
     
-    // First, handle within-node split by inserting BR
-    // We need to re-query text nodes because previous loop might have changed things? 
-    // Actually we just modified nodeValue.
-    
-    // Let's iterate again for the split logic.
-    // We need a fresh walker or array because we might be modifying the DOM (splitting nodes).
-    const walker2 = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT);
-    const nodesToSplit: {node: Node, index: number}[] = [];
-    
-    let currentNode: Node | null;
-    while ((currentNode = walker2.nextNode())) {
-      const text = currentNode.nodeValue || '';
-      const match = /(\d{4})([a-zA-Z])/.exec(text);
-      if (match) {
-        // Found a stuck date within the node
-        // We need to split this node.
-        // match.index + 4 is where the year ends.
-        nodesToSplit.push({ node: currentNode, index: match.index + 4 });
-      }
-    }
+    // Check if node is a block element that warrants a line break
+    const isBlock = (node: Node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return false;
+      const tag = (node as Element).tagName.toLowerCase();
+      return ['div', 'p', 'li', 'ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr', 'br'].includes(tag);
+    };
 
-    // Perform splits
-    nodesToSplit.reverse().forEach(({ node, index }) => {
-       const text = node.nodeValue || '';
-       const part1 = text.substring(0, index);
-       const part2 = text.substring(index);
-       
-       const frag = doc.createDocumentFragment();
-       frag.appendChild(doc.createTextNode(part1));
-       frag.appendChild(doc.createElement('br'));
-       frag.appendChild(doc.createTextNode(part2));
-       
-       node.parentNode?.replaceChild(frag, node);
-    });
-
-    // 4b. Handle Cross-Node Stuck Date
-    // e.g. <span>2025</span><span>Lorelie</span>
-    // We need to walk linearly and check adjacent text nodes.
-    const walker3 = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT);
-    let prevTextNode: Node | null = null;
-    
-    while ((currentNode = walker3.nextNode())) {
-      if (prevTextNode) {
-        const prevText = prevTextNode.nodeValue || '';
-        const currText = currentNode.nodeValue || '';
+    const traverse = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        let text = node.nodeValue || '';
         
-        // Check if prev ends with year (ignoring trailing spaces? User said "stuck", so usually no spaces)
-        // If there are spaces, it's not "stuck", so we don't need to force a break (unless user wants force break after date).
-        // Let's assume strict adjacency for "stuck".
-        if (/\d{4}$/.test(prevText) && /^[a-zA-Z]/.test(currText)) {
-           // Insert BR between them
-           // We need to find a common parent or just insert after prevTextNode?
-           // Text nodes might be in different parents.
-           // Safe bet: insert before current node's parent if it's the first child, or after prev node's parent?
-           // Easiest: insert BR before current text node (in its parent).
-           const br = doc.createElement('br');
-           currentNode.parentNode?.insertBefore(br, currentNode);
+        // Handle "Stuck Date" (Split Date and Name) within text node
+        // e.g. "2025Lorelie" -> "2025" <br> "Lorelie"
+        const match = /(\d{4})([a-zA-Z])/.exec(text);
+        if (match) {
+          const index = match.index + 4;
+          const part1 = processText(text.substring(0, index));
+          const part2 = processText(text.substring(index));
+          
+          if (part1.trim()) flatNodes.push(document.createTextNode(part1));
+          flatNodes.push(document.createElement('br'));
+          if (part2.trim()) flatNodes.push(document.createTextNode(part2));
+        } else {
+          text = processText(text);
+          if (text) { // Keep even if whitespace to preserve spacing between words, but maybe trim if it's just a newline
+             flatNodes.push(document.createTextNode(text));
+          }
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        const tag = el.tagName.toLowerCase();
+
+        if (tag === 'br') {
+          flatNodes.push(document.createElement('br'));
+        } else if (tag === 'a') {
+          // Keep the link, but process its text content
+          const newA = el.cloneNode(false) as HTMLElement; // shallow clone (attributes only)
+          newA.removeAttribute('style');
+          newA.removeAttribute('class');
+          newA.style.color = '#60a5fa'; // blue-400
+          newA.style.textDecoration = 'underline';
+          newA.textContent = processText(el.textContent || '');
+          flatNodes.push(newA);
+        } else {
+          // Traverse children for other elements
+          const childNodes = Array.from(node.childNodes);
+          childNodes.forEach(child => traverse(child));
+          
+          // If block element, add a break after content (if not already ending with one)
+          if (isBlock(node)) {
+            flatNodes.push(document.createElement('br'));
+          }
         }
       }
-      prevTextNode = currentNode;
-    }
+    };
 
-    // 4. Flatten lists (ul, ol, li) to prevent bullets in rich text editors like Asana
-    const lists = body.querySelectorAll('ul, ol');
-    lists.forEach(list => {
-      // Replace list with a div, but copy its styles or add a margin to simulate separation if needed
-      const div = doc.createElement('div');
-      div.style.listStyle = 'none';
-      div.style.padding = '0';
-      div.style.margin = '0';
-      
-      // Move all children to the new div
-      while (list.firstChild) {
-        div.appendChild(list.firstChild);
+    // Traverse the body
+    Array.from(body.childNodes).forEach(traverse);
+
+    // Reconstruct into a temporary container to get HTML string
+    const container = document.createElement('div');
+    flatNodes.forEach(n => {
+      if (typeof n === 'string') {
+        container.appendChild(document.createTextNode(n));
+      } else {
+        container.appendChild(n);
       }
-      
-      list.parentNode?.replaceChild(div, list);
     });
 
-    const listItems = body.querySelectorAll('li');
-    listItems.forEach(li => {
-      // Replace li with div and add a break if needed
-      // Important: Ensure we strip any list-style related attributes or classes if they exist
-      const div = doc.createElement('div');
-      div.innerHTML = li.innerHTML; // Keep inner HTML (links, formatting)
-      
-      // Add a style to ensure no bullets are shown (just in case)
-      div.style.listStyle = 'none';
-      div.style.display = 'block';
-      div.style.padding = '0';
-      div.style.margin = '0';
-      
-      li.parentNode?.replaceChild(div, li);
-    });
+    // Final cleanup on the generated HTML string
+    let finalHtml = container.innerHTML;
 
-    // 5. Add space on top and bottom of the Date
-    // This is trickier in HTML. We need to identify blocks that start with a date.
-    const datePattern = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Today|Yesterday|\d{1,2}\/\d{1,2}|\d{4}-\d{2}-\d{2})/i;
+    // 1. Force break after "sent the following message(s) at..." line if stuck
+    // Matches "sent the following message(s) at [Time] [AM/PM]" and ensures a break follows
+    // Made "messages" plural optional and space before AM/PM optional to cover all variations
+    finalHtml = finalHtml.replace(/(sent the following messages? at \d{1,2}:\d{2} ?[AP]M)/gi, '$1<br>');
+
+    // 2. Fix Stuck Date (e.g. "SEP 4, 2025Lorelie") and Ensure Date is on its own line
+    // Matches Date pattern (e.g. "SEP 4, 2025") and forces breaks around it
+    finalHtml = finalHtml.replace(/\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+\d{1,2}(?:,\s+\d{4})?/g, '<br>$&<br>');
+
+    // 3. Fix Stuck Timestamp (e.g. "11:52 PMLorelie" or "11:52 PM Lorelie")
+    // Matches "PM" or "AM" followed by optional spaces and then a letter
+    // Replaces with "PM<br>Lorelie" (stripping the space if it exists)
+    finalHtml = finalHtml.replace(/([AP]M)[\s]*([a-zA-Z])/g, '$1<br>$2');
+
+    // 4. Remove excessive breaks (more than 2 -> 2, or 2 -> 1 based on user preference)
+    // User said "spacing is too much", so let's aim for single breaks mostly, double only for dates
+    finalHtml = finalHtml.replace(/(<br\s*\/?>\s*){3,}/gi, '<br><br>'); 
     
-    // We can iterate over block elements (div, p, li) or just check text content of blocks
-    const blocks = body.querySelectorAll('div, p, li, h1, h2, h3, h4, h5, h6');
-    blocks.forEach(block => {
-      const textContent = block.textContent?.trim() || '';
-      if (datePattern.test(textContent)) {
-        // 1. Add 2 spaces (breaks) on top
-        if (block.previousSibling) {
-          const br1 = doc.createElement('br');
-          const br2 = doc.createElement('br');
-          block.parentNode?.insertBefore(br1, block);
-          block.parentNode?.insertBefore(br2, block);
-        }
-        
-        // 2. Remove space on bottom (ensure no breaks follow)
-        let next = block.nextSibling;
-        while (next && next.nodeName === 'BR') {
-          const toRemove = next;
-          next = next.nextSibling;
-          toRemove.parentNode?.removeChild(toRemove);
-        }
-      }
-    });
+    // 2. Ensure Date lines are preceded by a break (or two if needed for separation)
+    // We uppercased dates, so look for SEP 4, JAN 26 etc.
+    // The previous logic added breaks. Here we might have just text<br>DATE.
+    // If we want a blank line before date: text<br><br>DATE.
+    // Let's use regex on the HTML to enforce this.
+    
+    // Pattern: (Any tag or text ending) followed by (Date)
+    // We want to ensure there's a break before the date.
+    // Actually, if we just flattened everything, the structure is simpler.
+    
+    // Let's iterate the constructed nodes one last time to fix spacing around dates? 
+    // Or just use the string replacement which is easier.
+    
+    // Fix: Ensure 1 empty line before a Date (so 2 breaks total)
+    // Find: <br>SEP 4
+    // Replace: <br><br>SEP 4
+    // But be careful not to make 3 breaks.
+    
+    // We need to match the uppercased version in the HTML string
+    // Since we processText'd it, it's SEP, OCT, etc.
+    
+    // We can't easily regex match "Date at start of line" in HTML string without being careful.
+    // But we know dates are usually at the start of a text node in our flat list.
+    
+    // Let's rely on the block breaks we added.
+    // If we want to force extra spacing for dates:
+    // We can do it during traversal or here.
+    
+    // Let's just strip excessive breaks first.
+    finalHtml = finalHtml.replace(/(<br\s*\/?>\s*){2,}/gi, '<br><br>'); // Max 2 breaks
+    
+    // Remove break at the very start
+    finalHtml = finalHtml.replace(/^(<br\s*\/?>\s*)+/i, '');
+    
+    // Remove break at the very end
+    finalHtml = finalHtml.replace(/(<br\s*\/?>\s*)+$/i, '');
 
-    // Final cleanup: Remove any remaining ul/ol/li tags that might have been nested or missed
-    // (The previous pass should have caught them, but let's be safe by stripping list styles from everything)
-    const allElements = body.querySelectorAll('*');
-    allElements.forEach(el => {
-      if (el instanceof HTMLElement) {
-        el.style.listStyle = 'none';
-      }
-    });
-
-    setOutputHtml(body.innerHTML);
+    setOutputHtml(finalHtml);
   };
 
   const handleCopy = () => {
@@ -249,7 +215,28 @@ export const MessageCleaner: React.FC = () => {
     const text = e.clipboardData.getData('text/plain');
     
     // Prefer HTML if available, otherwise text
-    const content = html || text;
+    let content = html || text;
+
+    if (html) {
+      // Create a temporary DOM element to manipulate the HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+
+      // Remove all style and class attributes from all elements to prevent white background blocks
+      const allElements = tempDiv.querySelectorAll('*');
+      allElements.forEach(el => {
+        el.removeAttribute('style');
+        el.removeAttribute('class');
+        
+        // Make links visible in the dark theme
+        if (el.tagName === 'A') {
+          (el as HTMLElement).style.color = '#60a5fa'; // blue-400
+          (el as HTMLElement).style.textDecoration = 'underline';
+        }
+      });
+      
+      content = tempDiv.innerHTML;
+    }
     
     setInputHtml(content);
     

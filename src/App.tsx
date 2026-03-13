@@ -10,6 +10,8 @@ function App() {
   const [fileName, setFileName] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'excel' | 'cleaner'>('excel');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
   const handleDataLoaded = (loadedData: any[], name: string) => {
     setData(loadedData);
@@ -20,6 +22,8 @@ function App() {
     setData([]);
     setFileName('');
     setSearchTerm('');
+    setFilterDirection('down');
+    setCurrentMatchIndex(0);
   };
 
   return (
@@ -87,6 +91,10 @@ function App() {
                     onReset={handleReset} 
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
+                    filterDirection={filterDirection}
+                    onFilterDirectionChange={setFilterDirection}
+                    currentMatchIndex={currentMatchIndex}
+                    onMatchIndexChange={setCurrentMatchIndex}
                   />
                 )}
               </motion.div>

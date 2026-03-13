@@ -9,6 +9,10 @@ interface DataViewerProps {
   onReset: () => void;
   searchTerm: string;
   onSearchChange: (term: string) => void;
+  filterDirection: 'up' | 'down';
+  onFilterDirectionChange: React.Dispatch<React.SetStateAction<'up' | 'down'>>;
+  currentMatchIndex: number;
+  onMatchIndexChange: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export const DataViewer: React.FC<DataViewerProps> = ({ 
@@ -16,14 +20,17 @@ export const DataViewer: React.FC<DataViewerProps> = ({
   fileName, 
   onReset,
   searchTerm,
-  onSearchChange
+  onSearchChange,
+  filterDirection,
+  onFilterDirectionChange,
+  currentMatchIndex,
+  onMatchIndexChange
 }) => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [assigneeName, setAssigneeName] = useState<string>('Nikki Sixx Acosta');
   // searchTerm state lifted to parent
-  const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  // filterDirection and currentMatchIndex state lifted to parent
 
   if (!data || data.length === 0) return null;
 
@@ -78,7 +85,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
 
   // Reset current match index when search term changes
   useEffect(() => {
-    setCurrentMatchIndex(0);
+    onMatchIndexChange(0);
   }, [searchTerm]);
 
   const filteredData = useMemo(() => {
@@ -263,14 +270,14 @@ export const DataViewer: React.FC<DataViewerProps> = ({
                   {currentMatchIndex + 1}/{matches.length}
                 </span>
                 <button
-                  onClick={() => setCurrentMatchIndex(prev => (prev - 1 + matches.length) % matches.length)}
+                  onClick={() => onMatchIndexChange(prev => (prev - 1 + matches.length) % matches.length)}
                   className="p-0.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-zinc-200"
                   title="Previous match"
                 >
                   <ArrowUp className="w-3 h-3" />
                 </button>
                 <button
-                  onClick={() => setCurrentMatchIndex(prev => (prev + 1) % matches.length)}
+                  onClick={() => onMatchIndexChange(prev => (prev + 1) % matches.length)}
                   className="p-0.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-zinc-200"
                   title="Next match"
                 >
@@ -281,7 +288,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
 
             <div className="w-px h-4 bg-zinc-700 mx-2"></div>
             <button
-              onClick={() => setFilterDirection(prev => prev === 'up' ? 'down' : 'up')}
+              onClick={() => onFilterDirectionChange(prev => prev === 'up' ? 'down' : 'up')}
               className="flex items-center space-x-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
               title={`Filter Direction: ${filterDirection === 'up' ? 'To Top' : 'To Bottom'}`}
             >
