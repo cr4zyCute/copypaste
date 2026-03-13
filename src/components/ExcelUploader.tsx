@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
+import { FileSpreadsheet, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 interface ExcelUploaderProps {
   onDataLoaded: (data: any[], fileName: string) => void;
 }
