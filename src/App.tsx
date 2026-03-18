@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { ExcelUploader } from './components/ExcelUploader';
 import { DataViewer } from './components/DataViewer';
 import { MessageCleaner } from './components/MessageCleaner';
+import { Messenger } from './components/Messenger';
+import { EODGenerator } from './components/EODGenerator';
+import { DocxPromptReader } from './components/DocxPromptReader';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileSpreadsheet, Sparkles } from 'lucide-react';
+import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText } from 'lucide-react';
 
 function App() {
   const [data, setData] = useState<any[]>([]);
   const [fileName, setFileName] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'excel' | 'cleaner'>('excel');
+  const [activeTab, setActiveTab] = useState<'excel' | 'cleaner' | 'messenger' | 'eod' | 'prompt'>('excel');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -69,6 +72,42 @@ function App() {
               <Sparkles className="w-4 h-4" />
               Message Cleaner
             </button>
+            <button
+              onClick={() => setActiveTab('messenger')}
+              className={`
+                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                ${activeTab === 'messenger' 
+                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+              `}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Quick Connect
+            </button>
+            <button
+              onClick={() => setActiveTab('eod')}
+              className={`
+                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                ${activeTab === 'eod' 
+                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+              `}
+            >
+              <ClipboardList className="w-4 h-4" />
+              EOD
+            </button>
+            <button
+              onClick={() => setActiveTab('prompt')}
+              className={`
+                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                ${activeTab === 'prompt' 
+                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+              `}
+            >
+              <FileText className="w-4 h-4" />
+              Copy Prompt
+            </button>
           </div>
         </div>
 
@@ -98,7 +137,7 @@ function App() {
                   />
                 )}
               </motion.div>
-            ) : (
+            ) : activeTab === 'cleaner' ? (
               <motion.div
                 key="cleaner"
                 initial={{ opacity: 0, x: 20 }}
@@ -107,6 +146,36 @@ function App() {
                 transition={{ duration: 0.2 }}
               >
                 <MessageCleaner />
+              </motion.div>
+            ) : activeTab === 'messenger' ? (
+              <motion.div
+                key="messenger"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Messenger />
+              </motion.div>
+            ) : activeTab === 'eod' ? (
+              <motion.div
+                key="eod"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+              >
+                <EODGenerator />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="prompt"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <DocxPromptReader />
               </motion.div>
             )}
           </AnimatePresence>
