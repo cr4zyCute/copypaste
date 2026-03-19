@@ -27,10 +27,8 @@ export const Messenger: React.FC = () => {
 
   const getMessage = (firstName: string) => {
     return `Thanks for connecting, ${firstName}. I hope you're having a productive week so far.
-
-I’m curious—with how hard it is to find reliable admin staff right now, are you currently handling your after-hours and overflow calls in-house, or is that responsibility falling on your on-call technicians? 
-
-I’ve been chatting with several team leads in your space, and many are finding it increasingly difficult to balance technical work with customer service during peak times. I'd love to get your perspective on how teams your size are adapting to these staffing challenges.`;
+I’m curious—with how hard it is to find reliable admin staff right now, are you handling your after-hours and overflow calls in-house, or is that responsibility falling on your technicians?
+I’d love to get your perspective on how teams your size are adapting to these staffing challenges.`;
   };
 
   const handleAddName = (e?: React.FormEvent) => {

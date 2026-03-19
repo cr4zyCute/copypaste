@@ -40,7 +40,7 @@ function App() {
           className="text-center mb-10 space-y-4"
         >
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
-            Excel Import & Tools
+            Tools
           </h1>
           <p className="text-zinc-400 text-lg max-w-2xl mx-auto leading-relaxed">
             Simple, secure, and fast tools for your workflow.
