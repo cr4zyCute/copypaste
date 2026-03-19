@@ -8,15 +8,17 @@ import { DocxPromptReader } from './components/DocxPromptReader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText } from 'lucide-react';
 
+type Row = Record<string, unknown>;
+
 function App() {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<Row[]>([]);
   const [fileName, setFileName] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'excel' | 'cleaner' | 'messenger' | 'eod' | 'prompt'>('excel');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
-  const handleDataLoaded = (loadedData: any[], name: string) => {
+  const handleDataLoaded = (loadedData: Row[], name: string) => {
     setData(loadedData);
     setFileName(name);
   };

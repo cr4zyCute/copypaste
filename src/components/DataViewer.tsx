@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FileSpreadsheet, Trash2, Download, Copy, Check, Grid, List, User, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
+type Row = Record<string, unknown>;
 
 interface DataViewerProps {
-  data: any[];
+  data: Row[];
   fileName: string;
   onReset: () => void;
   searchTerm: string;
@@ -32,9 +33,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
   // searchTerm state lifted to parent
   // filterDirection and currentMatchIndex state lifted to parent
 
-  if (!data || data.length === 0) return null;
-
-  const getRowName = (row: any) => {
+  const getRowName = (row: Row) => {
     const rowKeys = Object.keys(row);
     
     // Helper to find key by normalized name
@@ -86,7 +85,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
   // Reset current match index when search term changes
   useEffect(() => {
     onMatchIndexChange(0);
-  }, [searchTerm]);
+  }, [searchTerm, onMatchIndexChange]);
 
   const filteredData = useMemo(() => {
     if (!searchTerm) return data;
@@ -133,7 +132,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
     XLSX.writeFile(wb, `export_${fileName}`);
   };
 
-  const formatCardContent = (row: any) => {
+  const formatCardContent = (row: Row) => {
     // If the row has keys matching the desired fields (case-insensitive), use them.
     // Otherwise, fallback to all keys.
     
@@ -171,7 +170,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
           } else {
             // Fallback to looking for a "Name" column directly
             const nameKey = rowKeys.find(key => key.toLowerCase() === 'name');
-            if (nameKey) value = row[nameKey];
+            if (nameKey) value = String(row[nameKey] ?? '');
           }
         } else if (field === "Email Address") {
           // Special handling for Email: look for "Email", "E-mail", "Mail", etc.
@@ -183,7 +182,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
                    normalizedKey === 'e-mail' ||
                    normalizedKey === 'contactemail';
           });
-          value = emailKey ? row[emailKey] : '';
+          value = emailKey ? String(row[emailKey] ?? '') : '';
         } else if (field === "Linkedinurl") {
            // Special handling for Linkedinurl: look for "LinkedIn", "Profile Link", etc.
            const linkedinKey = rowKeys.find(key => {
@@ -193,13 +192,13 @@ export const DataViewer: React.FC<DataViewerProps> = ({
                    normalizedKey === 'profilelink' || 
                    normalizedKey === 'linkedinprofile';
           });
-          value = linkedinKey ? row[linkedinKey] : '';
+          value = linkedinKey ? String(row[linkedinKey] ?? '') : '';
         } else {
           // Find the matching key in the row (case-insensitive)
           const actualKey = rowKeys.find(key => key.toLowerCase() === field.toLowerCase().replace(/_/g, '').replace(/\s/g, '')) 
                          || rowKeys.find(key => key.toLowerCase() === field.toLowerCase());
           
-          value = actualKey ? row[actualKey] : '';
+          value = actualKey ? String(row[actualKey] ?? '') : '';
         }
         
         // Only add if we want to show empty fields or just existing ones. 
@@ -209,7 +208,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
     } else {
       // Fallback: show all keys if no specific schema match
       rowKeys.forEach(key => {
-        mappedContent.push(`${key}: ${row[key]}`);
+        mappedContent.push(`${key}: ${String(row[key] ?? '')}`);
       });
     }
 

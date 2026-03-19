@@ -1,21 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Copy, Check, Eraser } from 'lucide-react';
 
 export const MessageCleaner: React.FC = () => {
   const [inputHtml, setInputHtml] = useState('');
-  const [outputHtml, setOutputHtml] = useState('');
   const [copied, setCopied] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    cleanMessage(inputHtml);
-  }, [inputHtml]);
-
-  const cleanMessage = (html: string) => {
+  const computeCleanHtml = (html: string) => {
     if (!html) {
-      setOutputHtml('');
-      return;
+      return '';
     }
 
     const parser = new DOMParser();
@@ -174,8 +168,10 @@ export const MessageCleaner: React.FC = () => {
     // Remove break at the very end
     finalHtml = finalHtml.replace(/(<br\s*\/?>\s*)+$/i, '');
 
-    setOutputHtml(finalHtml);
+    return finalHtml;
   };
+  
+  const outputHtml = useMemo(() => computeCleanHtml(inputHtml), [inputHtml]);
 
   const handleCopy = () => {
     if (!outputRef.current) return;

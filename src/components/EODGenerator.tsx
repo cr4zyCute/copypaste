@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Check, Plus, Trash2, Calendar, ClipboardList } from 'lucide-react';
 
@@ -35,14 +35,19 @@ export const EODGenerator: React.FC = () => {
     const savedTasks = localStorage.getItem(STORAGE_KEY_EOD_TASKS);
     if (savedTasks) return JSON.parse(savedTasks);
     
-    return DEFAULT_TASKS.map((content, index) => ({
-      id: index.toString(),
+    return DEFAULT_TASKS.map((content, idx) => ({
+      id: String(idx),
       content
     }));
   });
 
   const [newTask, setNewTask] = useState('');
   const [copied, setCopied] = useState(false);
+  const idRef = useRef(0);
+  const nextId = () => {
+    idRef.current += 1;
+    return idRef.current.toString(36);
+  };
 
   const handleSetToday = () => {
     setDate(getTodayDate());
@@ -50,8 +55,8 @@ export const EODGenerator: React.FC = () => {
 
   const handleResetToTemplate = () => {
     if (confirm('Reset to default template? This will clear current tasks.')) {
-      setTasks(DEFAULT_TASKS.map((content, index) => ({
-        id: Math.random().toString(36).substring(2, 9),
+      setTasks(DEFAULT_TASKS.map((content, idx) => ({
+        id: String(idx),
         content
       })));
     }
@@ -59,7 +64,7 @@ export const EODGenerator: React.FC = () => {
 
   const handleQuickAdd = (content: string) => {
     const task: EODTask = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: nextId(),
       content
     };
     setTasks([...tasks, task]);
@@ -84,7 +89,7 @@ export const EODGenerator: React.FC = () => {
     if (!newTask.trim()) return;
     
     const task: EODTask = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: nextId(),
       content: newTask.trim()
     };
     

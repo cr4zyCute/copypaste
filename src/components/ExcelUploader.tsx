@@ -2,22 +2,23 @@ import React, { useCallback, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { FileSpreadsheet, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+type Row = Record<string, unknown>;
 interface ExcelUploaderProps {
-  onDataLoaded: (data: any[], fileName: string) => void;
+  onDataLoaded: (data: Row[], fileName: string) => void;
 }
 
 export const ExcelUploader: React.FC<ExcelUploaderProps> = ({ onDataLoaded }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleFile = async (file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     setIsLoading(true);
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as Row[];
       onDataLoaded(jsonData, file.name);
     } catch (error) {
       console.error("Error reading file:", error);
@@ -25,7 +26,7 @@ export const ExcelUploader: React.FC<ExcelUploaderProps> = ({ onDataLoaded }) =>
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onDataLoaded]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -43,7 +44,7 @@ export const ExcelUploader: React.FC<ExcelUploaderProps> = ({ onDataLoaded }) =>
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
-  }, []);
+  }, [handleFile]);
 
   const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
