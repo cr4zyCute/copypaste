@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ExcelUploader } from './components/ExcelUploader';
 import { DataViewer } from './components/DataViewer';
 import { MessageCleaner } from './components/MessageCleaner';
@@ -11,6 +11,15 @@ import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, List
 
 type Row = Record<string, unknown>;
 
+interface NameEntry {
+  id: string;
+  name: string;
+  timestamp: number;
+  addedAt: string;
+}
+
+const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
+
 function App() {
   const [data, setData] = useState<Row[]>([]);
   const [fileName, setFileName] = useState<string>('');
@@ -18,6 +27,39 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  // Lifted state from SimpleList.tsx
+  const [names, setNames] = useState<NameEntry[]>(() => {
+    const saved = localStorage.getItem(SIMPLE_LIST_STORAGE_KEY);
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed.map((entry: any) => ({
+        ...entry,
+        addedAt: entry.addedAt || new Date(entry.timestamp).toISOString().split('T')[0]
+      }));
+    } catch {
+      return [];
+    }
+  });
+
+  // Persist names when they change
+  useEffect(() => {
+    localStorage.setItem(SIMPLE_LIST_STORAGE_KEY, JSON.stringify(names));
+  }, [names]);
+
+  // Function to refresh names from localStorage (for MessageCleaner sync)
+  const refreshNames = () => {
+    const saved = localStorage.getItem(SIMPLE_LIST_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setNames(parsed);
+      } catch (e) {
+        console.error('Error refreshing names:', e);
+      }
+    }
+  };
 
   const handleDataLoaded = (loadedData: Row[], name: string) => {
     setData(loadedData);
@@ -120,7 +162,10 @@ function App() {
               `}
             >
               <ListTodo className="w-4 h-4" />
-              Simple List
+              Simple List 
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 uppercase tracking-tight">
+                {names.length}
+              </span>
             </button>
           </div>
         </div>
@@ -159,7 +204,7 @@ function App() {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.2 }}
               >
-                <MessageCleaner />
+                <MessageCleaner onNameAdded={refreshNames} />
               </motion.div>
             ) : activeTab === 'messenger' ? (
               <motion.div
@@ -199,7 +244,7 @@ function App() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
               >
-                <SimpleList />
+                <SimpleList names={names} setNames={setNames} />
               </motion.div>
             )}
           </AnimatePresence>

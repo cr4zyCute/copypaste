@@ -5,7 +5,11 @@ import { Copy, Check, Eraser, UserPlus, Zap, ZapOff } from 'lucide-react';
 const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
 const AUTO_ADD_STORAGE_KEY = 'message_cleaner_auto_add';
 
-export const MessageCleaner: React.FC = () => {
+interface MessageCleanerProps {
+  onNameAdded?: () => void;
+}
+
+export const MessageCleaner: React.FC<MessageCleanerProps> = ({ onNameAdded }) => {
   const [inputHtml, setInputHtml] = useState('');
   const [copied, setCopied] = useState(false);
   const [listAdded, setListAdded] = useState(false);
@@ -425,34 +429,47 @@ export const MessageCleaner: React.FC = () => {
   const handleAddToList = (manualNameOverride?: string) => {
     let nameToSave = manualNameOverride || extractedName;
     
-    // Remove the prompt() call as it is not supported in some environments
     if (!nameToSave && !manualNameOverride) {
-      return; // Simply do nothing if no name is detected and no override provided
+      return; 
     }
 
     if (!nameToSave) return;
 
     try {
       const saved = localStorage.getItem(SIMPLE_LIST_STORAGE_KEY);
-      const names = saved ? JSON.parse(saved) : [];
+      let names = saved ? JSON.parse(saved) : [];
       
-      // Check if name already exists
-      if (names.some((n: any) => n.name.toLowerCase() === nameToSave.toLowerCase())) {
-        // Only alert if it's a manual add, not an auto-add
-        if (!manualNameOverride) {
-          alert('This name is already in the Simple List.');
+      const lowerName = nameToSave.toLowerCase();
+      const existingIdx = names.findIndex((n: any) => {
+        const nLower = n.name.toLowerCase();
+        return nLower === lowerName || nLower.startsWith(lowerName + ' ') || lowerName.startsWith(nLower + ' ');
+      });
+
+      if (existingIdx === -1) {
+        // New prospect
+        const newEntry = {
+          id: Math.random().toString(36).substring(2, 9),
+          name: nameToSave,
+          timestamp: Date.now(),
+          addedAt: new Date().toISOString().split('T')[0],
+        };
+        names = [newEntry, ...names];
+      } else {
+        // Existing prospect - check for name upgrade
+        const existingName = names[existingIdx].name;
+        if (nameToSave.length > existingName.length) {
+          // Upgrade to full name
+          names[existingIdx] = { ...names[existingIdx], name: nameToSave };
+        } else {
+          // Already have this name or a better version
+          if (!manualNameOverride) return; // Skip if auto-adding and no upgrade needed
         }
-        return;
       }
 
-      const newEntry = {
-        id: Math.random().toString(36).substring(2, 9),
-        name: nameToSave,
-        timestamp: Date.now(),
-      };
-
-      const updatedNames = [newEntry, ...names];
-      localStorage.setItem(SIMPLE_LIST_STORAGE_KEY, JSON.stringify(updatedNames));
+      localStorage.setItem(SIMPLE_LIST_STORAGE_KEY, JSON.stringify(names));
+      
+      // Notify parent to refresh state
+      if (onNameAdded) onNameAdded();
       
       setListAdded(true);
       setTimeout(() => setListAdded(false), 3000);

@@ -1,41 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Trash2, User, Search, X } from 'lucide-react';
+import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check } from 'lucide-react';
 
 interface NameEntry {
   id: string;
   name: string;
   timestamp: number;
+  addedAt: string; // ISO date string (YYYY-MM-DD)
+}
+
+interface SimpleListProps {
+  names: NameEntry[];
+  setNames: React.Dispatch<React.SetStateAction<NameEntry[]>>;
 }
 
 const STORAGE_KEY = 'simple_manual_list';
 
-export const SimpleList: React.FC = () => {
+export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames }) => {
   const [nameInput, setNameInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [names, setNames] = useState<NameEntry[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [namesCopied, setNamesCopied] = useState(false);
+  
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
-  }, [names]);
 
   const handleAddName = (e?: React.FormEvent) => {
     e?.preventDefault();
     const trimmed = nameInput.trim();
     if (!trimmed) return;
 
+    const today = new Date().toISOString().split('T')[0];
     const newEntry: NameEntry = {
       id: Math.random().toString(36).substring(2, 9),
       name: trimmed,
       timestamp: Date.now(),
+      addedAt: today,
     };
 
     setNames([newEntry, ...names]);
     setNameInput('');
+    setSelectedDate(today); // Switch to today when adding
     inputRef.current?.focus();
   };
 
@@ -49,9 +53,32 @@ export const SimpleList: React.FC = () => {
     }
   };
 
-  const filteredNames = names.filter(n => 
-    n.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleCopyNames = async () => {
+    if (names.length === 0) return;
+    try {
+      const allNames = names.map(n => n.name);
+      await navigator.clipboard.writeText(allNames.join('\n'));
+      setNamesCopied(true);
+      setTimeout(() => setNamesCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy names:', err);
+    }
+  };
+
+  const availableDates = React.useMemo(() => {
+    const dates = new Set<string>();
+    names.forEach(n => dates.add(n.addedAt));
+    // Always include today
+    dates.add(new Date().toISOString().split('T')[0]);
+    return Array.from(dates).sort().reverse();
+  }, [names]);
+
+  const filteredNames = React.useMemo(() => {
+    return names.filter(n => 
+      n.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      n.addedAt === selectedDate
+    );
+  }, [names, searchQuery, selectedDate]);
 
   return (
     <motion.div
@@ -71,15 +98,31 @@ export const SimpleList: React.FC = () => {
             </div>
           </div>
           
-          {names.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-red-400 transition-colors border border-zinc-800 rounded-lg hover:border-red-500/30"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Clear All
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {names.length > 0 && (
+              <>
+                <button
+                  onClick={handleCopyNames}
+                  className={`
+                    flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border
+                    ${namesCopied 
+                      ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}
+                  `}
+                >
+                  {namesCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {namesCopied ? 'Copied!' : 'Copy Names'}
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-red-400 transition-colors border border-zinc-800 rounded-lg hover:border-red-500/30"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Clear All
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -105,8 +148,8 @@ export const SimpleList: React.FC = () => {
             </button>
           </form>
 
-          {/* Search Section */}
-          {names.length > 0 && (
+          {/* Search and Date Filter Section */}
+          <div className="space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
               <input
@@ -125,13 +168,44 @@ export const SimpleList: React.FC = () => {
                 </button>
               )}
             </div>
-          )}
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              <Calendar className="w-4 h-4 text-zinc-500 shrink-0" />
+              <div className="flex gap-1">
+                {availableDates.map(date => {
+                  const isToday = date === new Date().toISOString().split('T')[0];
+                  const count = names.filter(n => n.addedAt === date).length;
+                  
+                  return (
+                    <button
+                      key={date}
+                      onClick={() => setSelectedDate(date)}
+                      className={`
+                        whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2
+                        ${selectedDate === date 
+                          ? 'bg-blue-600 border-blue-500 text-white' 
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:text-zinc-300'}
+                      `}
+                    >
+                      {isToday ? 'Today' : date}
+                      <span className={`
+                        px-1.5 py-0.5 rounded-full text-[10px] 
+                        ${selectedDate === date ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-zinc-400'}
+                      `}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
           {/* List Section */}
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden min-h-[300px] flex flex-col">
             <div className="p-3 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-2">
-                {filteredNames.length} {filteredNames.length === 1 ? 'Name' : 'Names'}
+                {filteredNames.length} {filteredNames.length === 1 ? 'Name' : 'Names'} Showing
               </span>
             </div>
 
