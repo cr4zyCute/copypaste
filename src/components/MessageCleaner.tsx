@@ -1,11 +1,133 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, Eraser } from 'lucide-react';
+import { Copy, Check, Eraser, UserPlus, Zap, ZapOff } from 'lucide-react';
+
+const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
+const AUTO_ADD_STORAGE_KEY = 'message_cleaner_auto_add';
 
 export const MessageCleaner: React.FC = () => {
   const [inputHtml, setInputHtml] = useState('');
   const [copied, setCopied] = useState(false);
+  const [listAdded, setListAdded] = useState(false);
+  const [autoAdd, setAutoAdd] = useState(() => {
+    const saved = localStorage.getItem(AUTO_ADD_STORAGE_KEY);
+    return saved === null ? true : saved === 'true'; // Default to true if not set
+  });
+  const lastAutoAddedName = useRef<string>('');
   const outputRef = useRef<HTMLDivElement>(null);
+
+  // Persist auto-add preference
+  useEffect(() => {
+    localStorage.setItem(AUTO_ADD_STORAGE_KEY, autoAdd.toString());
+  }, [autoAdd]);
+
+  // Extract name from input for the "Add to Simple List" feature
+  const extractedName = useMemo(() => {
+    if (!inputHtml) return '';
+    
+    // Create a temporary element to get plain text from HTML
+    const temp = document.createElement('div');
+    temp.innerHTML = inputHtml;
+    
+    // Improve text extraction to preserve line breaks from block elements
+    // Replace block-level tags with their content + a newline to ensure we get distinct lines
+    const blockTags = ['div', 'p', 'br', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr'];
+    blockTags.forEach(tag => {
+      const elements = temp.querySelectorAll(tag);
+      elements.forEach(el => {
+        const newline = document.createTextNode('\n');
+        el.parentNode?.insertBefore(newline, el.nextSibling);
+      });
+    });
+
+    const text = temp.innerText || temp.textContent || '';
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    if (lines.length === 0) return '';
+
+    let detectedName = '';
+    let headerNameFound = false;
+    
+    // 1. Try to find a header name (High confidence)
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      const line = lines[i];
+      // More relaxed name pattern: Allows multiple capitalized words, initials, and common suffixes
+      const namePattern = /^[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z.,]*){1,6}$/;
+      
+      if (namePattern.test(line)) {
+        const nextLine = lines[i + 1] || '';
+        const prevLine = lines[i - 1] || '';
+        const isHeader = 
+          nextLine.includes('connection') || 
+          nextLine.includes('degree') || 
+          nextLine.includes('1st') || 
+          nextLine.includes('2nd') || 
+          nextLine.includes('3rd') || 
+          nextLine.includes('owner') || 
+          nextLine.includes('manager') ||
+          nextLine.includes('Chief') ||
+          nextLine.includes('Director') ||
+          nextLine.includes('Principal') ||
+          nextLine.includes('Professor') ||
+          nextLine.includes('Managing') ||
+          nextLine.includes('Development') ||
+          nextLine.includes('Energy') ||
+          nextLine.includes('Executive') ||
+          prevLine.includes('Oct') || 
+          prevLine.includes('Nov') || 
+          prevLine.includes('Dec') || 
+          prevLine.includes('Jan') || 
+          prevLine.includes('Feb') || 
+          prevLine.includes('202');
+          
+        if (isHeader) {
+          detectedName = line;
+          headerNameFound = true;
+          break;
+        }
+      }
+    }
+
+    // 2. Fallback: Check for greetings (Hi [Name])
+    // If we found a greeting name, try to see if that name exists as a fuller name at the very top
+    if (!headerNameFound) {
+      for (const line of lines) {
+        const greetingMatch = line.match(/^(?:Hi|Hello|Hey|Greetings|Dear)\s+([A-Z][a-z]+)/i);
+        if (greetingMatch) {
+          const firstName = greetingMatch[1].trim();
+          // Look at the first 5 lines to see if any line starts with this first name
+          for (let j = 0; j < Math.min(lines.length, 5); j++) {
+            if (lines[j].startsWith(firstName) && lines[j].length > firstName.length) {
+              detectedName = lines[j];
+              headerNameFound = true;
+              break;
+            }
+          }
+          if (!detectedName) {
+            detectedName = firstName;
+          }
+          break;
+        }
+      }
+    }
+
+    // 3. Last Fallback: Check the very first line of the paste
+    // If it's a short line with 2-3 capitalized words, it's very likely the name
+    if (!detectedName && lines[0] && /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}$/.test(lines[0])) {
+      detectedName = lines[0];
+    }
+
+    // Clean up the detected name from LinkedIn connection noise
+    if (detectedName) {
+      detectedName = detectedName
+        .replace(/\d+(?:st|nd|rd|th)\s+degree\s+connection/gi, '')
+        .replace(/·\s*\d+(?:st|nd|rd|th)/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    return detectedName;
+  }, [inputHtml]);
 
   const computeCleanHtml = (html: string) => {
     if (!html) {
@@ -17,9 +139,36 @@ export const MessageCleaner: React.FC = () => {
     const body = doc.body;
 
     // Helper to process text content
-    const processText = (text: string) => {
+    const processText = (text: string, isInsideLink: boolean = false) => {
       let processed = text;
       
+      // 0. Remove LinkedIn Header info if present
+      // This is the specific request: remove Name, Degree, Title block at the very top
+      // We DON'T remove the name if it's inside a link (the user wants to keep conversation links)
+      if (extractedName && !isInsideLink) {
+        // Create a regex that matches the header block more effectively
+        const nameEscaped = extractedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Remove the name line
+        processed = processed.replace(new RegExp(`^\\s*${nameEscaped}\\s*$`, 'gm'), '');
+        
+        // Remove degree indicators
+        processed = processed.replace(/^\s*\d+(?:st|nd|rd|th)\s+degree\s+connection\s*$/gim, '');
+        processed = processed.replace(/^\s*·\s+\d+(?:st|nd|rd|th)\s*$/gm, '');
+        
+        // Remove common job title keywords if they appear as standalone lines at the top
+        const jobKeywords = ['Executive', 'Manager', 'Owner', 'Founder', 'Director', 'President', 'VP', 'Lead', 'Chief', 'Specialist', 'Partner', 'Principal', 'Professor', 'Dean', 'Engineer', 'Architect', 'Consultant'];
+        jobKeywords.forEach(word => {
+          const jobRegex = new RegExp(`^\\s*.*${word}.*\\s*$`, 'gm');
+          processed = processed.replace(jobRegex, (match) => {
+            // If it's a short line or contains many pipe symbols (typical for titles), remove it
+            const pipeCount = (match.match(/\|/g) || []).length;
+            if (match.length < 250 || pipeCount > 1) return '';
+            return match;
+          });
+        });
+      }
+
       // 1. Remove bullets (•, -, *, etc. at start of lines or standalone)
       processed = processed.replace(/^[\s]*[•\-*⋅‧∙◦○●⦿⦾➢➣➤][\s]*/gm, '');
       // Also remove any standalone bullets that might be left in the middle of text if they look like list items
@@ -82,7 +231,8 @@ export const MessageCleaner: React.FC = () => {
           newA.removeAttribute('class');
           newA.style.color = '#60a5fa'; // blue-400
           newA.style.textDecoration = 'underline';
-          newA.textContent = processText(el.textContent || '');
+          // Pass true to indicate we are inside a link, preventing name stripping
+          newA.textContent = processText(el.textContent || '', true);
           flatNodes.push(newA);
         } else {
           // Traverse children for other elements
@@ -112,6 +262,28 @@ export const MessageCleaner: React.FC = () => {
 
     // Final cleanup on the generated HTML string
     let finalHtml = container.innerHTML;
+
+    // --- STRIP EVERYTHING BEFORE THE FIRST DAY OR DATE ---
+    // This addresses the user request: "start on the date dont include this in the result"
+    // Expanded to include days of the week, "Today", and "Yesterday"
+    const months = 'JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC';
+    const days = 'Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday';
+    const relativeDays = 'Today|Yesterday';
+    
+    const datePattern = new RegExp(`(?:${months})\\s+\\d{1,2}(?:,\\s+\\d{4})?|${days}|${relativeDays}`, 'i');
+    
+    const firstDateMatch = finalHtml.match(datePattern);
+    if (firstDateMatch && firstDateMatch.index !== undefined) {
+      // Find the start of the date line (or the nearest previous <br> to keep it clean)
+      const substringBeforeDate = finalHtml.substring(0, firstDateMatch.index);
+      const lastBreakBeforeDate = substringBeforeDate.lastIndexOf('<br>');
+      
+      if (lastBreakBeforeDate !== -1) {
+        finalHtml = finalHtml.substring(lastBreakBeforeDate + 4);
+      } else {
+        finalHtml = finalHtml.substring(firstDateMatch.index);
+      }
+    }
 
     // 1. Force break after "sent the following message(s) at..." line if stuck
     // Matches "sent the following message(s) at [Time] [AM/PM]" and ensures a break follows
@@ -247,7 +419,55 @@ export const MessageCleaner: React.FC = () => {
     // Also clear the div content manually since it's contentEditable
     const inputDiv = document.getElementById('message-cleaner-input');
     if (inputDiv) inputDiv.innerHTML = '';
+    setListAdded(false);
   };
+
+  const handleAddToList = (manualNameOverride?: string) => {
+    let nameToSave = manualNameOverride || extractedName;
+    
+    // Remove the prompt() call as it is not supported in some environments
+    if (!nameToSave && !manualNameOverride) {
+      return; // Simply do nothing if no name is detected and no override provided
+    }
+
+    if (!nameToSave) return;
+
+    try {
+      const saved = localStorage.getItem(SIMPLE_LIST_STORAGE_KEY);
+      const names = saved ? JSON.parse(saved) : [];
+      
+      // Check if name already exists
+      if (names.some((n: any) => n.name.toLowerCase() === nameToSave.toLowerCase())) {
+        // Only alert if it's a manual add, not an auto-add
+        if (!manualNameOverride) {
+          alert('This name is already in the Simple List.');
+        }
+        return;
+      }
+
+      const newEntry = {
+        id: Math.random().toString(36).substring(2, 9),
+        name: nameToSave,
+        timestamp: Date.now(),
+      };
+
+      const updatedNames = [newEntry, ...names];
+      localStorage.setItem(SIMPLE_LIST_STORAGE_KEY, JSON.stringify(updatedNames));
+      
+      setListAdded(true);
+      setTimeout(() => setListAdded(false), 3000);
+    } catch (err) {
+      console.error('Failed to add name to Simple List:', err);
+    }
+  };
+
+  // Auto-add logic
+  useEffect(() => {
+    if (autoAdd && extractedName && extractedName !== lastAutoAddedName.current) {
+      handleAddToList(extractedName);
+      lastAutoAddedName.current = extractedName;
+    }
+  }, [extractedName, autoAdd]);
 
   return (
     <motion.div
@@ -260,12 +480,48 @@ export const MessageCleaner: React.FC = () => {
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <label className="text-sm font-medium text-zinc-400">Original Message (Rich Text)</label>
-            <button
-              onClick={handleClear}
-              className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
-            >
-              <Eraser className="w-3 h-3" /> Clear
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Auto-Add Toggle */}
+              <button
+                onClick={() => setAutoAdd(!autoAdd)}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border
+                  ${autoAdd 
+                    ? 'bg-amber-500/10 text-amber-500 border-amber-500/30' 
+                    : 'bg-zinc-800/50 text-zinc-500 border-zinc-700 hover:text-zinc-400'}
+                `}
+                title={autoAdd ? 'Auto-Add is ON' : 'Auto-Add is OFF'}
+              >
+                {autoAdd ? <Zap className="w-3 h-3 fill-current" /> : <ZapOff className="w-3 h-3" />}
+                Auto-Add {autoAdd ? 'ON' : 'OFF'}
+              </button>
+
+              <div className="h-4 w-[1px] bg-zinc-800" />
+
+              {inputHtml && (
+                <button
+                  onClick={() => handleAddToList()}
+                  disabled={listAdded || (!extractedName && !autoAdd)}
+                  className={`
+                    flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all
+                    ${listAdded 
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/30' 
+                      : !extractedName 
+                        ? 'bg-zinc-800/50 text-zinc-600 border border-zinc-700 cursor-not-allowed'
+                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20'}
+                  `}
+                >
+                  <UserPlus className="w-3 h-3" />
+                  {listAdded ? 'Added!' : extractedName ? `Add "${extractedName}"` : 'No Name Detected'}
+                </button>
+              )}
+              <button
+                onClick={handleClear}
+                className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
+              >
+                <Eraser className="w-3 h-3" /> Clear
+              </button>
+            </div>
           </div>
           <div
             id="message-cleaner-input"

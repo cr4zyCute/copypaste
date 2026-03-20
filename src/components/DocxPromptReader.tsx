@@ -139,6 +139,13 @@ export const DocxPromptReader: React.FC = () => {
       }
 
       if (name) {
+        // Clean up name from LinkedIn noise
+        name = name
+          .replace(/\d+(?:st|nd|rd|th)\s+degree\s+connection/gi, '')
+          .replace(/·\s*\d+(?:st|nd|rd|th)/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
         const lower = name.toLowerCase();
         // Exclude Lorelie Juntilla and common UI text
         if (!lower.includes('lorelie') && 
