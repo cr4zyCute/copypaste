@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check } from 'lucide-react';
 
@@ -13,8 +13,6 @@ interface SimpleListProps {
   names: NameEntry[];
   setNames: React.Dispatch<React.SetStateAction<NameEntry[]>>;
 }
-
-const STORAGE_KEY = 'simple_manual_list';
 
 export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames }) => {
   const [nameInput, setNameInput] = useState('');
