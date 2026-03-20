@@ -75,22 +75,50 @@ export const DocxPromptReader: React.FC = () => {
     
     const lines = inputMessage.split('\n');
     const newNames = new Set<string>();
+    let headerNameFound = false;
     
-    lines.forEach(line => {
+    lines.forEach((line, index) => {
       const trimmed = line.trim();
       if (!trimmed) return;
 
       let name = '';
       
+      // Pattern 0: Header Full Name (Often the very first line of a pasted profile or conversation)
+      if (!headerNameFound && index < 10 && /^[A-Z][a-z]+(?:\s+[A-Z][a-z.,]+){1,5}$/.test(trimmed)) {
+        // Double check surrounding lines for LinkedIn context
+        const nextLine = lines[index + 1]?.trim() || '';
+        const prevLine = lines[index - 1]?.trim() || '';
+        const isHeader = 
+          nextLine.includes('connection') || 
+          nextLine.includes('degree') || 
+          nextLine.includes('owner') || 
+          nextLine.includes('manager') ||
+          nextLine.includes('Chief') ||
+          prevLine.includes('Oct') || 
+          prevLine.includes('Nov') || 
+          prevLine.includes('Feb') || 
+          prevLine.includes('202');
+          
+        if (isHeader) {
+          name = trimmed;
+          headerNameFound = true; // Once we find the header name, we stop looking for other header patterns
+        }
+      }
+
       // Pattern 1: Name • 1st/2nd/3rd (Strictly short lines only)
-      if (trimmed.length < 50) {
+      if (!name && trimmed.length < 50) {
         const dotMatch = trimmed.match(/^([^•\n]+)\s*•/);
         if (dotMatch) {
           name = dotMatch[1].trim();
         } 
         // Pattern 2: Common name prefix or just capitalized words (Strictly short lines)
-        else if (/^(?:(?:Ms\.|Mr\.|Sir|Ma'am)\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}$/.test(trimmed)) {
-          name = trimmed;
+        else if (/^(?:(?:Ms\.|Mr\.|Sir|Ma'am)\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z.,]+){1,5}$/.test(trimmed)) {
+          // EXCLUSION: If it looks like a job title (Pure Grid Business Executive), skip it
+          const jobKeywords = ['Executive', 'Manager', 'Owner', 'Founder', 'Director', 'President', 'VP', 'Lead', 'Chief', 'Specialist', 'Partner', 'Principal'];
+          const isJobTitle = jobKeywords.some(word => trimmed.includes(word));
+          if (!isJobTitle) {
+            name = trimmed;
+          }
         }
       }
 
@@ -117,8 +145,18 @@ export const DocxPromptReader: React.FC = () => {
             !lower.includes('juntilla') && 
             !lower.includes('message') && 
             !lower.includes('profile')) {
-          // Only add if not in deleted list AND not already in storedProspects
-          if (!deletedProspects.includes(name) && !storedProspects.some(p => p.name === name)) {
+          // Check if it's already in storedProspects - but only block if it's the EXACT same name
+          // If the new name is "Clark Gable" and we have "Clark", we WANT to include it so it can be updated
+          const alreadyExistsExactly = storedProspects.some(p => p.name === name);
+          
+          // Check if this name or any variation of it has been deleted
+          const isDeleted = deletedProspects.some(d => {
+            const dLower = d.toLowerCase();
+            const nLower = name.toLowerCase();
+            return dLower === nLower || dLower.startsWith(nLower + ' ') || nLower.startsWith(dLower + ' ');
+          });
+
+          if (!isDeleted && !alreadyExistsExactly) {
             newNames.add(name);
           }
         }
@@ -128,20 +166,59 @@ export const DocxPromptReader: React.FC = () => {
     if (newNames.size > 0) {
       const namesArray = Array.from(newNames);
       const today = new Date().toISOString().split('T')[0];
-      const newProspects: Prospect[] = namesArray.map(name => ({
-        name,
-        addedAt: today
-      }));
-      
-      setStoredProspects(prev => [...prev, ...newProspects]);
-      setProspectStatuses(prev => {
-        const next = { ...prev };
-        namesArray.forEach(name => {
-          if (!next[name] || next[name] === 'none') {
-            next[name] = 1; // Default to Follow-up #1
+
+      // Filter out names from namesArray if a longer version of the same name is present in the same batch
+      const filteredNamesArray = namesArray.filter(name => {
+        return !namesArray.some(other => other !== name && other.toLowerCase().startsWith(name.toLowerCase() + ' '));
+      });
+
+      setStoredProspects(prev => {
+        let next = [...prev];
+        let nextStatuses = { ...prospectStatuses };
+        let changed = false;
+
+        filteredNamesArray.forEach(name => {
+          const lowerName = name.toLowerCase();
+          const existingIdx = next.findIndex(p => {
+            const pLower = p.name.toLowerCase();
+            return pLower === lowerName || pLower.startsWith(lowerName + ' ') || lowerName.startsWith(pLower + ' ');
+          });
+
+          if (existingIdx === -1) {
+            // New prospect
+            next.push({ name, addedAt: today });
+            nextStatuses[name] = 1; // Default to Follow-up #1
+            changed = true;
+          } else {
+            // Existing prospect - check for name upgrade
+            const existingName = next[existingIdx].name;
+            if (name.length > existingName.length) {
+              // Upgrade to full name
+              next[existingIdx] = { ...next[existingIdx], name };
+              
+              // Migrate status to the new full name key
+              if (nextStatuses[existingName] !== undefined) {
+                nextStatuses[name] = nextStatuses[existingName];
+                delete nextStatuses[existingName];
+              } else {
+                nextStatuses[name] = 1; // Fallback default
+              }
+              changed = true;
+            } else {
+              // Already have this name or a better version, but ensure it has a status
+              if (nextStatuses[existingName] === undefined || nextStatuses[existingName] === 'none') {
+                nextStatuses[existingName] = 1;
+                changed = true;
+              }
+            }
           }
         });
-        return next;
+
+        if (changed) {
+          setProspectStatuses(nextStatuses);
+          return next;
+        }
+        return prev;
       });
     }
   }, [inputMessage, deletedProspects, storedProspects]);
@@ -260,6 +337,10 @@ AVIDUS UVP (Unique Value Proposition):
 - Outcome: Reduced job scheduling delays by 30% and improved response times.
 - Solution: Offloading admin, scheduling, invoicing, and dispatch to Avidus.
 - Assets: "The Anatomy of Operational Chaos" (a 1-page visual mapping time leaks).
+- Diagnostic Tools: 
+  * FixFlow™ Operational Chaos Diagnostic (https://operationalchaos.scoreapp.com/) - Focus on scheduling/admin bottlenecks.
+  * The Bottleneck Diagnostic (https://bottleneckdiagnostic.scoreapp.com/) - Focus on business owner freedom and delegation readiness.
+  * Use these as high-value, no-pressure offers to uncover improvement areas at a fraction of the usual cost.
 
 ---------------------------------- 
 PERSONALITY PROFILE (Kathlynn Mae):

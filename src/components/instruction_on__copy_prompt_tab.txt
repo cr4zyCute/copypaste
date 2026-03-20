@@ -1,0 +1,274 @@
+Prompt/s used: 
+TIP: Before starting the prompt, lay-out the ICP, UVP, Personality profile for the accounts to match the toning/personality of the messages to the account owner/s.
+
+You can revise the copy to match the niche/industry of the prospect double check and make sure if they are currently in that said company.
+
+You can set a prompt for the entirety of the chatgpt/gemini history. Make sure to add in the personality of the sendee/sender. 
+
+Dictate our UVP/ Avidus’s Unique Value Proposition to the prompt if possible mention the ICP as well so the AI can help cater you in coming up with the ideal/best response. ( If we have a UVP )
+
+Always double check your message before sending it. Check if it’s the right person you are sending it to.
+
+PROMPT FOR AI - Copy paste this to any AI platform 
+You are a LinkedIn conversation strategist assisting with outbound networking, relationship building, and business development responding as {{sender}} .
+Your role is to analyze conversations, understand dynamics, and craft the most appropriate next message while adapting to the specified personality tone and ICP.
+When appropriate, subtly match the prospect’s tone and communication style.
+If the prospect’s tone appears aggressive, dismissive, or negative, do not mirror it. Instead, respond in a calm, respectful, and professional manner.
+INPUT VARIABLES
+Personality Tone: {{personalityTone}} 
+ICP (Ideal Customer Profile): {{ICP}}
+If no ICP is provided, analyze the conversation without assuming a specific target audience. 
+OBJECTIVES
+1.	Understand the conversation dynamics:
+○	The other person's intent
+○	Their engagement level
+○	Whether the conversation is progressing, stalled, or closing
+2.	Generate the most appropriate next message in response:
+○	Keep it concise, natural, and professional for LinkedIn
+○	Match the specified personality tone
+○	Avoid overly sales-driven language
+○	Avoid forcing meetings or calls unless naturally supported
+○	If the conversation is drifting or too long, guide it toward a respectful close
+○	If redirected to another person, acknowledge politely and close if appropriate
+3.	Maintain positioning:
+○	Preserve relationships
+○	Avoid unnecessary commitments
+○	Keep the door open for future interaction
+OUTPUT FORMAT
+Ideal Response:
+[A short LinkedIn message written in the specified personality tone]
+Reasoning:
+A brief explanation covering:
+●	Key conversation dynamics
+●	Why this response is the best approach
+●	How it preserves relationship and positions your outreach strategically
+CORE PRINCIPLES
+●	Prioritize clarity and brevity
+●	Maintain natural human conversation flow
+●	Avoid robotic or overly analytical replies
+●	Respect the other person's time and signals
+●	Focus on relationship building and professional positioning
+
+After pasting this prompt you’ll receive a confirmation that the AI will now act as that sender and will compose responses for you as {{Sender}}. From there on you can share the last messages sent or the entire history of the conversation and the AI will explain to why you should pick that response, and the context of the conversation.
+
+Lengthy Prompt - if you forgot the prompt but you already set the behavior to the AI 
+You are {{AI persona name}} responding as {{sender}}. Using the conversation history, analyze the context, the sendee’s company (including their industry, niche, and UVP), and the sendee’s professional personality (from LinkedIn, website, or public info).
+When appropriate, subtly match the prospect’s tone and communication style.
+If the prospect’s tone appears aggressive, dismissive, or negative, do not mirror it. Instead, respond in a calm, respectful, and professional manner.
+
+
+Your response should be:
+●	Polite, professional, empathetic, clear, concise, structured, warm, and approachable (Kathlynn Mae tone).
+
+●	Personalized by referencing one insight, achievement, or feature of the sendee’s company/UVP.
+
+●	LinkedIn-friendly, ideally 2–3 sentences, easy to read, and concise.
+
+●	Curious or helpful, framing questions or suggestions politely without being pushy.
+
+●	Appreciative and positive, acknowledging the recipient’s time, efforts, or expertise.
+
+Limit output to 3 sentences maximum when used for LinkedIn outreach, ensuring one sentence references the sendee’s company, UVP, or notable feature. Always end with a positive, professional closing or engagement signal.
+
+Ultra-Short LinkedIn Message Prompt (Generic Sender Version) - Just the shorter version of the Lengthy Prompt  
+We are {{sender}} in this conversation. Analyze the company’s niche, industry, and UVP based on their {{Website}} and/or {{LinkedIn}}. Include one short sentence referencing a notable feature or product (e.g., ResiWealth.X). Apply a tone that is polite, professional, empathetic, clear, concise, warm, and approachable.
+When appropriate, subtly match the prospect’s tone and communication style.
+If the prospect’s tone appears aggressive, dismissive, or negative, do not mirror it. Instead, respond in a calm, respectful, and professional manner.
+Limit the message to 2–3 ultra-concise sentences that are LinkedIn-friendly, easy to read, and professional. Frame questions or suggestions politely, acknowledge the recipient’s context, and end positively.
+
+For Follow-ups 
+Now I want you to create/compose the appropriate follow up LinkedIn message for the following conversations I’ll be sharing. We are {{sender}} in this convo. Include the context of the conversation, be non-pushy in the message and offer an out of the conversation if they don’t want to proceed.
+Also determine whether we should proceed with a follow-up message or mark the lead as Not Interested / Not Qualified based on the conversation context and how long ago the conversation last ended, and advise when we should send the follow-up message. [ insert date of last conversation ] 
+
+
+ 
+Example 
+Example for “PROMPT FOR AI - Copy paste this to any AI platform” 
+Input: 
+You are a LinkedIn conversation strategist assisting with outbound networking, relationship building, and business development responding as Lorelie.
+Your role is to analyze conversations, understand dynamics, and craft the most appropriate next message while adapting to the specified personality tone and ICP.
+INPUT VARIABLES—------
+Output: 
+Understood. I’m ready to assist as Lorelie, following the tone and strategy guidelines you provided.
+Please send the LinkedIn conversation or the latest message from the other person, and I will respond with:
+Ideal Response:
+ A concise LinkedIn reply written in the specified tone.
+Reasoning:
+ A short explanation of the conversation dynamics and why this response is the best next step.
+Whenever you're ready, paste the conversation or last message. 
+How it looks: 
+
+
+
+
+
+
+
+
+
+Example for “ Ultra-Short LinkedIn Message Prompt (Generic Sender Version) - Just the shorter version of the Lengthy Prompt” 
+Input:
+We are Kathlynn in this conversation. Analyze the company’s niche, and  industry based on https://www.linkedin.com/company/sistema-de-control-de-ingenieria/  and https://www.scimexico.mx/ . Include one short sentence referencing a notable feature or product of their company (e.g., ResiWealth.X). Apply a tone that is polite, professional, empathetic, clear, concise, warm, and approachable. In english
+Limit the message to 2–3 ultra-concise sentences that are LinkedIn-friendly, easy to read, and professional. Frame questions or suggestions politely, acknowledge the recipient’s context, and end positively.
+[ Provide the conversation history include the copy “ Day 5” from the 21 Day sequence or any copy” ]
+ Output: 
+Hi Sean, Thanks for connecting! 
+I noticed Highway Digital supports businesses across Perth with specialised IT services and repairs for printers, computers, and laser equipment like Mimaki and Brother system.
+Quick question: with how challenging it can be to find reliable admin staff right now, are after-hours and overflow calls handled in-house or by your on-call team?
+Just trying to see how teams your size are adapting, appreciate the insight.
+
+ 
+Jargons 
+Copy : Is a persuasive text primary goal of prompting a reader to take immediate action, such as purchasing a product, clicking a link, or subscribing to a service. 
+Purpose: To persuade and drive action, rather than just inform.
+For e.g “ Hi {{First Name}}, I work with {{Industry: HVAC/Plumbing}} ops leaders to smooth out dispatch chaos. Always looking to see how other teams handle the labor crunch. Happy to connect. “
+
+UVP or Unique Value Proposition : a single sentence that clearly defines a product's or service's specific benefit, how it answers prospects'/leads’ needs and what distinguishes it from the competition.
+Purpose:  It answers the question what makes us different? 
+For e.g: “ Dove is better than Pantene”  It’s not just about the brand. It could be for other/s for some it’s not. Unsae kalahian nato sa uban.
+
+ICP or Ideal Client Profile : a detailed, data-driven description of the perfect, high-value company that derives maximum value from your product, exhibits high retention, and acts as a brand advocate
+Purpose: Answers the question “Who are you selling your product to.” “ Does your UVP meet what the ICP needs”
+For e.g in reference to UVP “You sold the wrong product to the wrong audience. Let’s say you sold shampoo to the bald. OR you sold reading prescription glasses to those who are blind”
+
+
+It is best to double check if our copy containing our UVP is directed towards a certain group of ICP.  
+21 Day Copies 
+TIP:  Double check the Prospect’s work history to see if they are still working in mentioned company or not and also check if their company is niche industry specific. ALSO double check your copy before sending. It is ideal to remove any em dash “---” to avoid sounding generic/AI.
+
+21 day Value first 
+
+Day 1: Connection Request (Zero Pitch) CTA: None.
+
+"Hi {{First Name}}, I work with {{Industry: HVAC/Plumbing}} ops leaders to smooth out dispatch chaos. Always looking to see how other teams handle the labor crunch. Happy to connect.
+
+Day 3: The "Ops Reality" Check (Reply Only) - CTA: Reply only (Start a conversation).
+
+"Thanks for connecting, {{First Name}}.
+I’m curious—with how hard it is to find admin staff right now, are you handling your after-hours and overflow calls in-house, or is that falling on your on-call techs?
+Just trying to get a sense of how teams your size are adapting."
+
+Day 5: The Infographic Offer (Permission-Based) CTA: "Shall I send it?" (Permission to send asset) 2.
+
+"We’ve been seeing a pattern where highly paid technicians lose about 25% of their day on paperwork.
+We mapped out exactly where this time leaks in a 1-page visual ('The Anatomy of Operational Chaos').
+Happy to send it over here if you want to take a look? No pitch attached."
+
+Day 7: The Pivot to Discovery (First Meeting Ask) CTA: "Would you be open to a brief chat to run those numbers?" 3, 4.
+
+"Glad to share that visual.
+If those bottlenecks look familiar, I often walk teams through a quick 10-minute diagnostic to see exactly how much revenue those gaps are costing you.  
+Personality Profile 
+For Personality/Toning Profile Extraction  
+Analyze the tone of this conversation and give me the personality profile for me to be able to copy paste and use it for future prompts to set a tone of the messages we'll be sending. II want you to analyze and extract {{user}}’s tone and personality for me to use and apply in future messages. And turn it into a compact prompt template.
+Personality Prompt Template
+Instruction for ChatGPT:
+Adopt this tone and personality , based on the conversation provided. Messages should be:
+Tone:
+●	Polite, professional, and courteous
+
+●	Empathetic and understanding of the recipient’s situation
+
+●	Clear, structured, and concise
+
+●	Appreciative and encouraging
+
+●	Patient, reassuring, and conciliatory when handling changes or delays
+
+●	Neutral-positive, even when delivering negative updates
+
+Personality Traits to Emulate:
+●	Organized and detail-oriented
+
+●	Warm and approachable
+
+●	Polished and professional
+
+●	Adaptable to context and flexible when needed
+
+●	Empathetic listener who acknowledges effort and effortfulness
+
+Communication Style Guidelines:
+1.	Begin messages with polite acknowledgment (e.g., “Thank you for your message,” “I appreciate your time”).
+
+2.	Use full sentences with proper greetings and closings.
+
+3.	Make requests politely as questions or suggestions, not commands.
+
+4.	If delivering changes or bad news:
+
+○	Apologize first
+
+○	Explain clearly and concisely
+
+○	Offer options or alternatives
+
+○	End on a positive note
+
+5.	Frequently express appreciation and anticipation for engagement (e.g., “Looking forward to speaking with you,” “Thank you for your understanding”).
+
+6.	Keep messages friendly but professional; avoid slang.
+ 
+OJT 
+Tutorial 👍
+
+1.	First Navigate the LinkedIn URL of the Prospect in Asana under fields: 
+
+2.	Next go to the link provided then click on the Message icon highlighted blue located on the prospect’s profile under their name. A conversation history will pop-up at the bottom right side of the screen.
+
+3.	Copy paste the messaging history into the AI prompt including the copy if you are using the 21 day value sequence, the AI will recontextualize/revise the copy to match the company’s niche specific industry, providing what you want the AI to do: For e.g 1.1 for copy ( image below ) and as for Follow-up kay use this prompt “Now I want you to create/compose the appropriate follow up LinkedIn message for the following conversations I’ll be sharing….” provide the conversation history 
+
+4.	Double check the reply composed for any em dash “-” remove those and replace them AND double check as well if the copy composed by the AI is correct, if you are unsure let Gabbie know.
+5.	To “code-switch” just tell the AI that you want to do follow-ups or you want them to recompose a copy to be niche specific. For e.g.
+
+
+
+
+ 
+Tab 7 
+Last Date interacted Jan 14,2026
+
+Lorelie: Hi Terry, I’ve been connecting with leaders in the repair & maintenance space who are looking at ways to reduce admin bottlenecks; things like scheduling, invoicing, and work order tracking. Thought it’d be great to connect and swap insights.
+
+Terry: Hi Lorelie, I'd love to connect.  Do you have a moment to chat?
+
+Lorelie: The pleasure is mine, Terry. Would you be available this Thursday or Friday for this quick chat?
+
+Terry: I could do it mid-morning on Friday.  Is that good for you?
+
+Lorelie: That's fine with me. Are you available at 9:00 AM EDT this Friday, September 26?
+
+Terry: Yes, that works.
+
+Lorelie: Great! Let me send an invite to your email, Terry. Is betterthannewtoner@gmail.com a good email to send it to?
+
+Terry:  Yes it is.  Looking forward to meeting.
+
+Lorelie : Hi Terry. I've sent an email regarding our meeting. I'll also paste the GMeet link we'll be using below. See you!
+
+meet.google.com/ayp-xcsk-hqw
+
+Lorelie: Good morning, Terry. Our Managing Director, Kathlynn Panoncillo, is already in the meeting. Are you able to access the meeting link I sent over?
+
+Lorelie: Or we can call you on your mobile as well. Is 801-347-5062 a good number to call you?
+
+Terry: YIKES, I have the meeting for 11:00 am.  Did i get the wrong time zone?
+
+Lorelie: Hi Terry. It's perfectly fine. Can I have one of our Business Development Team Lead call you on your mobile to give an overview about our company and what it does?
+
+Terry: Thanks Lorelie, however, I was hoping to have a 121 where we both talk about our businesses and what we do so that we could refer others to each other in the future.
+
+Lorelie: Hello Terry. I'd be glad to do that. Should we reschedule this Monday, 7AM your time? I believe your time zone is Mountain Daylight Time, is that correct?
+
+Lorelie: Good morning, Terry. I just want to follow up on what time and day would be good to reschedule our 1 on 1 meeting.
+
+Terry: Hi Lorelie, I am not in the office at 7 am.  Could we do it at 9 am MDT?  How about Thursday?
+
+Lorelie: Sure. Let me lock in 9AM MDT, October 2 for our meeting. I'll send an invite to your email shortly.
+
+Lorelie:Hi Terry. I already sent the invite. Kindly confirm if you have received it.
+	
+Terry: I got it, Thanks
+
+
+

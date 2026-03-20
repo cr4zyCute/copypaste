@@ -44,7 +44,6 @@ function App() {
             Tools
           </h1>
           <p className="text-zinc-400 text-lg max-w-2xl mx-auto leading-relaxed">
-            Simple, secure, and fast tools for your workflow.
           </p>
         </motion.header>
 
