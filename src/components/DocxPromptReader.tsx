@@ -8,6 +8,7 @@ const STORAGE_KEY_DELETED = 'linkedin_strategist_deleted';
 const STORAGE_KEY_PROSPECTS = 'linkedin_strategist_prospects';
 
 interface Prospect {
+  id: string;
   name: string;
   addedAt: string; // ISO date string (YYYY-MM-DD)
 }
@@ -42,11 +43,26 @@ export const DocxPromptReader: React.FC = () => {
     if (!saved) return [];
     try {
       const parsed = JSON.parse(saved);
-      // Migration: if it was a string array, convert to Prospect objects
-      if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
-        return parsed.map(name => ({ name, addedAt: new Date().toISOString().split('T')[0] }));
+      // Migration: if it was a string array or missing ID, convert to Prospect objects with IDs
+      if (Array.isArray(parsed)) {
+        return parsed.map((item: any) => {
+          if (typeof item === 'string') {
+            return { 
+              id: Math.random().toString(36).substring(2, 9),
+              name: item, 
+              addedAt: new Date().toISOString().split('T')[0] 
+            };
+          }
+          if (!item.id) {
+            return {
+              ...item,
+              id: Math.random().toString(36).substring(2, 9)
+            };
+          }
+          return item;
+        });
       }
-      return parsed;
+      return [];
     } catch {
       return [];
     }
@@ -193,7 +209,11 @@ export const DocxPromptReader: React.FC = () => {
 
           if (existingIdx === -1) {
             // New prospect
-            next.push({ name, addedAt: today });
+            next.push({ 
+              id: Math.random().toString(36).substring(2, 9),
+              name, 
+              addedAt: today 
+            });
             nextStatuses[name] = 1; // Default to Follow-up #1
             changed = true;
           } else {
@@ -600,7 +620,7 @@ Why Prospect Is Not Interested:
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.05 }}
-                        key={name}
+                        key={p.id}
                         className={`
                           group flex items-center justify-between p-3 rounded-lg transition-all border
                           ${prospectStatuses[name] === 'not-interested' 

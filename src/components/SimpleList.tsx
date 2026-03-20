@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check } from 'lucide-react';
 
-interface NameEntry {
+export interface NameEntry {
   id: string;
   name: string;
   timestamp: number;

@@ -5,18 +5,11 @@ import { MessageCleaner } from './components/MessageCleaner';
 import { Messenger } from './components/Messenger';
 import { EODGenerator } from './components/EODGenerator';
 import { DocxPromptReader } from './components/DocxPromptReader';
-import { SimpleList } from './components/SimpleList';
+import { SimpleList, type NameEntry } from './components/SimpleList';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo } from 'lucide-react';
 
 type Row = Record<string, unknown>;
-
-interface NameEntry {
-  id: string;
-  name: string;
-  timestamp: number;
-  addedAt: string;
-}
 
 const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
 

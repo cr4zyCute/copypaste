@@ -43,10 +43,8 @@ export const EODGenerator: React.FC = () => {
 
   const [newTask, setNewTask] = useState('');
   const [copied, setCopied] = useState(false);
-  const idRef = useRef(0);
   const nextId = () => {
-    idRef.current += 1;
-    return idRef.current.toString(36);
+    return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
   };
 
   const handleSetToday = () => {
