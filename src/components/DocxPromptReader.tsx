@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Copy, Check, Wand2, Users, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle } from 'lucide-react';
+import { MessageSquare, Copy, Check, Wand2, Users, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3 } from 'lucide-react';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
 const STORAGE_KEY_STATUSES = 'linkedin_strategist_statuses';
@@ -19,8 +19,9 @@ export const DocxPromptReader: React.FC = () => {
   });
   const [copied, setCopied] = useState(false);
   const [namesCopied, setNamesCopied] = useState(false);
-  const [mode, setMode] = useState<'Reply' | 'Follow-up' | 'Close'>('Reply');
+  const [mode, setMode] = useState<'Reply' | 'Follow-up' | 'Close' | 'Not-Interested'>('Reply');
   const [promptTemplate, setPromptTemplate] = useState<'Main' | 'Lengthy' | 'Ultra-Short' | 'Follow-up-Specific'>('Main');
+  const [notInterestedType, setNotInterestedType] = useState<'no-engagement' | 'with-conversation'>('no-engagement');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [statusFilter, setStatusFilter] = useState<'none' | 'follow-up' | 'not-interested'>('none');
@@ -29,6 +30,10 @@ export const DocxPromptReader: React.FC = () => {
   const [showVariablesModal, setShowVariablesModal] = useState(false);
   const [show21DayModal, setShow21DayModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
+  
+  // Edit name state
+  const [editingProspectId, setEditingProspectId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
   
   // Dynamic variables with localStorage persistence
   const [sender, setSender] = useState(() => localStorage.getItem('linkedin_sender') || 'Kathlynn Mae');
@@ -67,22 +72,25 @@ export const DocxPromptReader: React.FC = () => {
       const parsed = JSON.parse(saved);
       // Migration: if it was a string array or missing ID, convert to Prospect objects with IDs
       if (Array.isArray(parsed)) {
-        return parsed.map((item: any) => {
-          if (typeof item === 'string') {
-            return { 
-              id: Math.random().toString(36).substring(2, 9),
-              name: item, 
-              addedAt: new Date().toISOString().split('T')[0] 
-            };
-          }
-          if (!item.id) {
-            return {
-              ...item,
-              id: Math.random().toString(36).substring(2, 9)
-            };
-          }
-          return item;
-        });
+        return parsed
+          .map((item: any) => {
+            if (typeof item === 'string') {
+              return {
+                id: Math.random().toString(36).substring(2, 9),
+                name: item,
+                addedAt: new Date().toISOString().split('T')[0]
+              };
+            }
+            if (!item.id) {
+              return {
+                ...item,
+                id: Math.random().toString(36).substring(2, 9)
+              };
+            }
+            return item;
+          })
+          // Filter out invalid names (too short, less than 3 characters)
+          .filter((item: Prospect) => item.name && item.name.trim().length >= 3);
       }
       return [];
     } catch {
@@ -131,6 +139,7 @@ export const DocxPromptReader: React.FC = () => {
     const lines = inputMessage.split('\n');
     const newNames = new Set<string>();
     let headerNameFound = false;
+    let prospectNameFromGreeting = ''; // For backward compatibility
     
     lines.forEach((line, index) => {
       const trimmed = line.trim();
@@ -139,24 +148,58 @@ export const DocxPromptReader: React.FC = () => {
       let name = '';
       
       // Pattern 0: Header Full Name (Often the very first line of a pasted profile or conversation)
-      if (!headerNameFound && index < 10 && /^[A-Z][a-z]+(?:\s+[A-Z][a-z.,]+){1,5}$/.test(trimmed)) {
-        // Double check surrounding lines for LinkedIn context
-        const nextLine = lines[index + 1]?.trim() || '';
-        const prevLine = lines[index - 1]?.trim() || '';
-        const isHeader = 
-          nextLine.includes('connection') || 
-          nextLine.includes('degree') || 
-          nextLine.includes('owner') || 
-          nextLine.includes('manager') ||
-          nextLine.includes('Chief') ||
-          prevLine.includes('Oct') || 
-          prevLine.includes('Nov') || 
-          prevLine.includes('Feb') || 
-          prevLine.includes('202');
+      // This should be the FIRST pattern we check and prioritize
+      // Updated to support special characters (accented letters like José, Jesús, etc.)
+      if (!headerNameFound && index < 5 && /^[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ.,]+){1,5}$/.test(trimmed)) {
+        // For very first line (index 0), check if next line has LinkedIn context
+        if (index === 0) {
+          const nextLine = lines[index + 1]?.trim() || '';
+          const hasLinkedInContext = nextLine.includes('connection') ||
+            nextLine.includes('degree') ||
+            nextLine.includes('owner') ||
+            nextLine.includes('sent the following');
           
-        if (isHeader) {
-          name = trimmed;
-          headerNameFound = true; // Once we find the header name, we stop looking for other header patterns
+          if (hasLinkedInContext) {
+            name = trimmed;
+            headerNameFound = true;
+          }
+        }
+        // For lines 1-5, check surrounding context
+        else if (index < 5) {
+          const nextLine = lines[index + 1]?.trim() || '';
+          const prevLine = lines[index - 1]?.trim() || '';
+          const isHeader =
+            nextLine.includes('connection') ||
+            nextLine.includes('degree') ||
+            nextLine.includes('owner') ||
+            nextLine.includes('manager') ||
+            nextLine.includes('Chief') ||
+            nextLine.includes('sent the following') ||
+            prevLine.includes('Oct') ||
+            prevLine.includes('Nov') ||
+            prevLine.includes('Feb') ||
+            prevLine.includes('202');
+            
+          if (isHeader) {
+            name = trimmed;
+            headerNameFound = true;
+          }
+        }
+      }
+
+      // Pattern 0b: If we found a greeting with a name, store it as fallback
+      // This helps when the header name extraction fails
+      // Updated to capture full name including initials, suffixes, and special characters
+      // Exclude names ending with comma (like "José De Jesús,")
+      if (!prospectNameFromGreeting) {
+        const greetingMatch = trimmed.match(/^(?:Hi|Hello|Hey|Greetings|Dear)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]*(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ.]*)*)/i);
+        if (greetingMatch) {
+          const extractedName = greetingMatch[1].trim();
+          // Remove trailing comma and anything after it
+          const cleanedName = extractedName.replace(/,.*$/, '').trim();
+          if (cleanedName.length > 0) {
+            prospectNameFromGreeting = cleanedName;
+          }
         }
       }
 
@@ -165,23 +208,37 @@ export const DocxPromptReader: React.FC = () => {
         const dotMatch = trimmed.match(/^([^•\n]+)\s*•/);
         if (dotMatch) {
           name = dotMatch[1].trim();
-        } 
+        }
         // Pattern 2: Common name prefix or just capitalized words (Strictly short lines)
-        else if (/^(?:(?:Ms\.|Mr\.|Sir|Ma'am)\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z.,]+){1,5}$/.test(trimmed)) {
-          // EXCLUSION: If it looks like a job title (Pure Grid Business Executive), skip it
-          const jobKeywords = ['Executive', 'Manager', 'Owner', 'Founder', 'Director', 'President', 'VP', 'Lead', 'Chief', 'Specialist', 'Partner', 'Principal'];
+        // Updated to support special characters
+        // EXCLUSION: Names in parentheses like (Jose) - these are nicknames/alternate names
+        else if (!trimmed.startsWith('(') && !trimmed.endsWith(')') && !/^\([^)]+\)$/.test(trimmed) && /^(?:(?:Ms\.|Mr\.|Sir|Ma'am)\s+)?[A-ZÀ-ÿ][A-Za-zÀ-ÿ]+(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ.,]+){1,5}$/.test(trimmed)) {
+          // EXCLUSION: Greetings that start with Hi, Hello, Hey, Dear, Greetings
+          const startsWithGreeting = /^(Hi|Hello|Hey|Dear|Greetings)\s+/i.test(trimmed);
+          
+          // EXCLUSION: If it looks like a job title or common non-name phrases
+          const jobKeywords = ['Executive', 'Manager', 'Owner', 'Founder', 'Director', 'President', 'VP', 'Lead', 'Chief', 'Specialist', 'Partner', 'Principal', 'Homepage', 'Website', 'Company', 'Business'];
           const isJobTitle = jobKeywords.some(word => trimmed.includes(word));
-          if (!isJobTitle) {
+          
+          if (!startsWithGreeting && !isJobTitle) {
             name = trimmed;
           }
         }
       }
 
-      // Pattern 3: Greetings (Hi Stuart, Hello Stuart, etc.) - Can be on any line length
+      // Pattern 3: Greetings (Hi Chris, Hello Chris John Smith, etc.) - Can be on any line length
+      // Updated to capture full name after greeting, not just first name
+      // More relaxed to capture names with initials, suffixes, multiple words, and special characters
+      // Exclude names ending with comma (like "José De Jesús,")
       if (!name) {
-        const greetingMatch = trimmed.match(/^(?:Hi|Hello|Hey|Greetings|Dear)\s+([A-Z][a-z]+)/i);
+        const greetingMatch = trimmed.match(/^(?:Hi|Hello|Hey|Greetings|Dear)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]*(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ.]*)*)/i);
         if (greetingMatch) {
-          name = greetingMatch[1].trim();
+          const extractedName = greetingMatch[1].trim();
+          // Remove trailing comma and anything after it
+          const cleanedName = extractedName.replace(/,.*$/, '').trim();
+          if (cleanedName.length > 0) {
+            name = cleanedName;
+          }
         }
       }
 
@@ -201,37 +258,76 @@ export const DocxPromptReader: React.FC = () => {
           .replace(/\s+/g, ' ')
           .trim();
 
+        // Minimum length check - names should be at least 3 characters
+        // This prevents capturing "Jos" or "I" as names
+        if (name.length < 3) {
+          name = '';
+        }
+
         const lower = name.toLowerCase();
         // Exclude Lorelie Juntilla and common UI text
-        if (!lower.includes('lorelie') && 
-            !lower.includes('juntilla') && 
-            !lower.includes('message') && 
+        if (name && !lower.includes('lorelie') &&
+            !lower.includes('juntilla') &&
+            !lower.includes('message') &&
             !lower.includes('profile')) {
           // Check if it's already in storedProspects - but only block if it's the EXACT same name
           // If the new name is "Clark Gable" and we have "Clark", we WANT to include it so it can be updated
           const alreadyExistsExactly = storedProspects.some(p => p.name === name);
           
-          // Check if this name or any variation of it has been deleted
-          const isDeleted = deletedProspects.some(d => {
-            const dLower = d.toLowerCase();
-            const nLower = name.toLowerCase();
-            return dLower === nLower || dLower.startsWith(nLower + ' ') || nLower.startsWith(dLower + ' ');
-          });
-
-          if (!isDeleted && !alreadyExistsExactly) {
+          // Removed deletion check - allow re-adding deleted names when pasted again
+          if (!alreadyExistsExactly) {
             newNames.add(name);
           }
         }
       }
     });
 
+    // Fallback: If no header name was found but greeting extraction found a name, use that
+    // Note: The greeting pattern now extracts the full name directly, so this fallback
+    // handles edge cases where greeting extraction didn't work in the first pass
+    if (newNames.size === 0) {
+      // Try one more time - look for "Hi FirstName LastName" pattern anywhere in the message
+      // More relaxed to capture names with initials, suffixes, multiple words, and special characters
+      const fullMessage = inputMessage;
+      const hiNameMatch = fullMessage.match(/(?:^|\n)\s*(?:Hi|Hello|Hey)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]*(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ.]*)+)/i);
+      if (hiNameMatch) {
+        let prospectName = hiNameMatch[1].trim();
+        // Remove trailing comma and anything after it
+        prospectName = prospectName.replace(/,.*$/, '').trim();
+        const lower = prospectName.toLowerCase();
+        // Exclude sender names and ensure minimum length
+        if (prospectName.length >= 3 &&
+            !lower.includes('lorelie') &&
+            !lower.includes('juntilla') &&
+            !lower.includes(sender.toLowerCase()) &&
+            prospectName.split(/\s+/).length >= 2) { // Require at least 2 words for full name
+          newNames.add(prospectName);
+        }
+      }
+    }
+
     if (newNames.size > 0) {
       const namesArray = Array.from(newNames);
       const today = new Date().toISOString().split('T')[0];
 
       // Filter out names from namesArray if a longer version of the same name is present in the same batch
+      // This handles cases like "Jos" vs "JOSÉ DE JESÚS RIOS CASIQUE"
       const filteredNamesArray = namesArray.filter(name => {
-        return !namesArray.some(other => other !== name && other.toLowerCase().startsWith(name.toLowerCase() + ' '));
+        const nameLower = name.toLowerCase();
+        // Normalize accented characters for comparison
+        const nameNormalized = nameLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        
+        return !namesArray.some(other => {
+          if (other === name) return false;
+          
+          const otherLower = other.toLowerCase();
+          const otherNormalized = otherLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          
+          // Check if the longer name starts with the shorter name (with or without accents)
+          // Example: "Jos" should be filtered out if "José De Jesús" exists
+          return otherNormalized.startsWith(nameNormalized + ' ') || 
+                 otherNormalized.startsWith(nameNormalized) && otherNormalized.length > nameNormalized.length + 2;
+        });
       });
 
       setStoredProspects(prev => {
@@ -308,9 +404,56 @@ export const DocxPromptReader: React.FC = () => {
     });
   };
 
-  const handleDeleteProspect = (name: string) => {
+  const handleDeleteProspect = (prospectId: string, name: string) => {
+    // Confirm deletion
+    if (!confirm(`Delete "${name}" from prospects?`)) {
+      return;
+    }
+    
     setDeletedProspects(prev => [...prev, name]);
-    setStoredProspects(prev => prev.filter(p => p.name !== name));
+    setStoredProspects(prev => prev.filter(p => p.id !== prospectId));
+    // Also remove the status for this name
+    setProspectStatuses(prev => {
+      const newStatuses = { ...prev };
+      delete newStatuses[name];
+      return newStatuses;
+    });
+  };
+
+  const handleEditProspect = (prospect: Prospect) => {
+    setEditingProspectId(prospect.id);
+    setEditingName(prospect.name);
+  };
+
+  const handleSaveEdit = (prospectId: string, oldName: string) => {
+    if (!editingName.trim() || editingName === oldName) {
+      setEditingProspectId(null);
+      setEditingName('');
+      return;
+    }
+
+    // Update the prospect name
+    setStoredProspects(prev => 
+      prev.map(p => p.id === prospectId ? { ...p, name: editingName.trim() } : p)
+    );
+
+    // Migrate the status from old name to new name
+    setProspectStatuses(prev => {
+      const newStatuses = { ...prev };
+      if (newStatuses[oldName] !== undefined) {
+        newStatuses[editingName.trim()] = newStatuses[oldName];
+        delete newStatuses[oldName];
+      }
+      return newStatuses;
+    });
+
+    setEditingProspectId(null);
+    setEditingName('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingProspectId(null);
+    setEditingName('');
   };
 
   const handleCopyNames = async () => {
@@ -326,16 +469,31 @@ export const DocxPromptReader: React.FC = () => {
   };
 
   const handleClear = () => {
-    if (confirm('Clear conversation and all stored prospects?')) {
-      setInputMessage('');
-      setProspectStatuses({});
-      setDeletedProspects([]);
-      setStoredProspects([]);
-      localStorage.removeItem(STORAGE_KEY_INPUT);
-      localStorage.removeItem(STORAGE_KEY_STATUSES);
-      localStorage.removeItem(STORAGE_KEY_DELETED);
-      localStorage.removeItem(STORAGE_KEY_PROSPECTS);
+    const totalProspects = storedProspects.length;
+    const confirmMessage = totalProspects > 0 
+      ? `⚠️ WARNING: This will permanently delete ${totalProspects} prospect${totalProspects > 1 ? 's' : ''} and all conversation data!\n\nType "CLEAR" to confirm deletion:`
+      : 'Clear conversation?';
+    
+    if (totalProspects > 0) {
+      const userInput = prompt(confirmMessage);
+      if (userInput !== 'CLEAR') {
+        alert('Clear operation cancelled. Your data is safe.');
+        return;
+      }
+    } else {
+      if (!confirm(confirmMessage)) {
+        return;
+      }
     }
+    
+    setInputMessage('');
+    setProspectStatuses({});
+    setDeletedProspects([]);
+    setStoredProspects([]);
+    localStorage.removeItem(STORAGE_KEY_INPUT);
+    localStorage.removeItem(STORAGE_KEY_STATUSES);
+    localStorage.removeItem(STORAGE_KEY_DELETED);
+    localStorage.removeItem(STORAGE_KEY_PROSPECTS);
   };
 
   const filteredProspects = React.useMemo(() => {
@@ -395,8 +553,48 @@ export const DocxPromptReader: React.FC = () => {
 - MUST: Acknowledge the time since last contact (e.g., "I realize it's been a while").
 - MUST: Express complete understanding that this might not be a priority right now.
 - MUST: Leave the door open for the future "no strings attached".
-- MUST NOT: Pitch services or ask for a meeting.`
+- MUST NOT: Pitch services or ask for a meeting.`,
+        'Not-Interested': notInterestedType === 'no-engagement' 
+          ? `GOAL: Document why this prospect is marked as "Not Interested" - No Engagement.
+- DEFAULT NOTE: The prospect hasn't engaged at all despite multiple attempts. Current message already provided an opt-out + resource link → leave the door open for future interaction.
+- OUTPUT: Copy this default note as-is for documentation purposes.`
+          : `GOAL: Analyze the conversation and create a detailed note explaining WHY the prospect is not interested.
+- TASK: Based on the conversation provided, identify specific signals, objections, or statements that indicate lack of interest.
+- OUTPUT: A clear, concise note (2-4 sentences) documenting the reason for marking as "Not Interested".
+- FOCUS: Be specific - reference actual conversation points, not generic assumptions.
+- NOTE: This is NOT a message to send to the prospect - it's an internal note for documentation.`
       };
+
+      // Special handling for Not-Interested mode
+      if (mode === 'Not-Interested') {
+        if (notInterestedType === 'no-engagement') {
+          return `The prospect hasn't engaged at all despite multiple attempts. Current message already provided an opt-out + resource link → leave the door open for future interaction.`;
+        } else {
+          return `You are analyzing a LinkedIn conversation to document why a prospect should be marked as "Not Interested".
+
+IMPORTANT: This is NOT a message to send to the prospect. This is an internal note for documentation purposes.
+
+Conversation:
+"""
+${inputMessage}
+"""
+
+TASK:
+Analyze the conversation above and create a clear, concise note (2-4 sentences) explaining WHY this prospect is not interested.
+
+Focus on:
+- Specific signals, objections, or statements from the prospect
+- Explicit or implicit indicators of disinterest
+- Any reasons they gave for not proceeding
+- Timing or priority issues they mentioned
+
+OUTPUT FORMAT:
+Provide a direct, factual note that references actual conversation points. Be specific and avoid generic assumptions.
+
+Example format:
+"Prospect indicated [specific reason]. They mentioned [specific detail from conversation]. [Any additional context that shows lack of interest]."`;
+        }
+      }
 
       return `You are a LinkedIn conversation strategist assisting with outbound networking, relationship building, and business development responding as ${sender}.
 Your role is to analyze conversations, understand dynamics, and craft the most appropriate next message while adapting to the specified personality tone and ICP.
@@ -707,13 +905,13 @@ ${inputMessage}
           </div>
 
           {/* Mode Selector */}
-          <div className="flex bg-zinc-950/50 border border-zinc-800 rounded-xl p-1 mb-4 shrink-0">
-            {(['Reply', 'Follow-up', 'Close'] as const).map((m) => (
+          <div className="grid grid-cols-4 gap-1 bg-zinc-950/50 border border-zinc-800 rounded-xl p-1 mb-4 shrink-0">
+            {(['Reply', 'Follow-up', 'Close', 'Not-Interested'] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
                 className={`
-                  flex-1 py-2 text-xs font-medium rounded-lg transition-all
+                  py-2 text-xs font-medium rounded-lg transition-all
                   ${mode === m 
                     ? 'bg-zinc-800 text-blue-400 shadow-sm ring-1 ring-zinc-700' 
                     : 'text-zinc-500 hover:text-zinc-300'}
@@ -723,6 +921,37 @@ ${inputMessage}
               </button>
             ))}
           </div>
+
+          {/* Not-Interested Type Selector - Only show when Not-Interested mode is selected */}
+          {mode === 'Not-Interested' && (
+            <div className="mb-4 shrink-0">
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1 block">Not Interested Type</label>
+              <div className="grid grid-cols-2 gap-1 bg-zinc-950/50 border border-zinc-800 rounded-xl p-1">
+                <button
+                  onClick={() => setNotInterestedType('no-engagement')}
+                  className={`
+                    py-2 text-[10px] font-medium rounded-lg transition-all
+                    ${notInterestedType === 'no-engagement'
+                      ? 'bg-zinc-800 text-red-400 shadow-sm ring-1 ring-zinc-700'
+                      : 'text-zinc-500 hover:text-zinc-300'}
+                  `}
+                >
+                  No Engagement
+                </button>
+                <button
+                  onClick={() => setNotInterestedType('with-conversation')}
+                  className={`
+                    py-2 text-[10px] font-medium rounded-lg transition-all
+                    ${notInterestedType === 'with-conversation'
+                      ? 'bg-zinc-800 text-red-400 shadow-sm ring-1 ring-zinc-700'
+                      : 'text-zinc-500 hover:text-zinc-300'}
+                  `}
+                >
+                  With Conversation
+                </button>
+              </div>
+            </div>
+          )}
 
           <textarea
             value={inputMessage}
@@ -885,9 +1114,9 @@ ${inputMessage}
                               : 'bg-zinc-950 border-transparent hover:border-zinc-800 hover:bg-zinc-900/80'}
                         `}
                       >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className={`
-                          w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border
+                          w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border shrink-0
                           ${prospectStatuses[name] === 'not-interested' 
                             ? 'bg-red-500/10 text-red-400 border-red-500/20' 
                             : typeof prospectStatuses[name] === 'number'
@@ -896,67 +1125,102 @@ ${inputMessage}
                         `}>
                           {name.charAt(0)}
                         </div>
-                        <div>
-                          <span className={`text-sm font-medium ${prospectStatuses[name] !== 'none' ? 'text-zinc-200' : 'text-zinc-300'}`}>
-                            {name}
-                          </span>
-                          {prospectStatuses[name] !== 'none' && (
-                            <p className={`text-[10px] font-bold uppercase tracking-tight ${prospectStatuses[name] === 'not-interested' ? 'text-red-500/70' : 'text-blue-500/70'}`}>
-                              {prospectStatuses[name] === 'not-interested' 
-                                ? 'Not Interested' 
-                                : `Follow-up #${prospectStatuses[name]}`}
-                            </p>
+                        <div className="flex-1 min-w-0">
+                          {editingProspectId === p.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editingName}
+                                onChange={(e) => setEditingName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSaveEdit(p.id, name);
+                                  } else if (e.key === 'Escape') {
+                                    handleCancelEdit();
+                                  }
+                                }}
+                                autoFocus
+                                className="flex-1 bg-zinc-900 border border-blue-500/50 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                onClick={() => handleSaveEdit(p.id, name)}
+                                className="p-1 text-green-400 hover:text-green-300"
+                                title="Save"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="p-1 text-red-400 hover:text-red-300"
+                                title="Cancel"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className={`text-sm font-medium ${prospectStatuses[name] !== 'none' ? 'text-zinc-200' : 'text-zinc-300'}`}>
+                                {name}
+                              </span>
+                              {prospectStatuses[name] !== 'none' && (
+                                <p className={`text-[10px] font-bold uppercase tracking-tight ${prospectStatuses[name] === 'not-interested' ? 'text-red-500/70' : 'text-blue-500/70'}`}>
+                                  {prospectStatuses[name] === 'not-interested' 
+                                    ? 'Not Interested' 
+                                    : `Follow-up #${prospectStatuses[name]}`}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => toggleStatus(name, 'not-interested')}
-                          className={`
-                            p-1.5 rounded-md transition-all
-                            ${prospectStatuses[name] === 'not-interested'
-                              ? 'bg-red-500/20 text-red-400'
-                              : 'text-zinc-600 hover:text-red-400 hover:bg-red-500/10'}
-                          `}
-                          title="Mark as Not Interested"
-                        >
-                          <Ban className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => toggleStatus(name, 'follow-up')}
-                          className={`
-                            p-1.5 rounded-md transition-all relative
-                            ${typeof prospectStatuses[name] === 'number'
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : 'text-zinc-600 hover:text-blue-400 hover:bg-blue-500/10'}
-                          `}
-                          title="Increment Follow-up Count"
-                        >
-                          <Bell className="w-3.5 h-3.5" />
-                          {typeof prospectStatuses[name] === 'number' && (
-                            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-blue-500 text-white text-[8px] flex items-center justify-center rounded-full font-bold shadow-sm">
-                              {prospectStatuses[name]}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(name);
-                          }}
-                          className="p-1.5 text-zinc-600 hover:text-zinc-200 transition-all opacity-0 group-hover:opacity-100"
-                          title="Copy name"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProspect(name)}
-                          className="p-1.5 text-zinc-600 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
-                          title="Delete prospect"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      {editingProspectId !== p.id && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => toggleStatus(name, 'not-interested')}
+                            className={`
+                              p-1.5 rounded-md transition-all
+                              ${prospectStatuses[name] === 'not-interested'
+                                ? 'bg-red-500/20 text-red-400'
+                                : 'text-zinc-600 hover:text-red-400 hover:bg-red-500/10'}
+                            `}
+                            title="Mark as Not Interested"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => toggleStatus(name, 'follow-up')}
+                            className={`
+                              p-1.5 rounded-md transition-all relative
+                              ${typeof prospectStatuses[name] === 'number'
+                                ? 'bg-blue-500/20 text-blue-400'
+                                : 'text-zinc-600 hover:text-blue-400 hover:bg-blue-500/10'}
+                            `}
+                            title="Increment Follow-up Count"
+                          >
+                            <Bell className="w-3.5 h-3.5" />
+                            {typeof prospectStatuses[name] === 'number' && (
+                              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-blue-500 text-white text-[8px] flex items-center justify-center rounded-full font-bold shadow-sm">
+                                {prospectStatuses[name]}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleEditProspect(p)}
+                            className="p-1.5 text-zinc-600 hover:text-blue-400 transition-all"
+                            title="Edit name"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProspect(p.id, name)}
+                            className="p-1.5 text-zinc-600 hover:text-red-400 transition-all"
+                            title="Delete prospect"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })}
