@@ -20,7 +20,7 @@ export const DocxPromptReader: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [namesCopied, setNamesCopied] = useState(false);
   const [mode, setMode] = useState<'Reply' | 'Follow-up' | 'Close' | 'Not-Interested'>('Reply');
-  const [promptTemplate, setPromptTemplate] = useState<'Main' | 'Lengthy' | 'Ultra-Short' | 'Follow-up-Specific'>('Main');
+  const [promptTemplate, setPromptTemplate] = useState<'Main' | 'Lengthy' | 'Ultra-Short' | 'Follow-up-Specific' | 'Close'>('Main');
   const [notInterestedType, setNotInterestedType] = useState<'no-engagement' | 'with-conversation'>('no-engagement');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -311,22 +311,34 @@ export const DocxPromptReader: React.FC = () => {
       const today = new Date().toISOString().split('T')[0];
 
       // Filter out names from namesArray if a longer version of the same name is present in the same batch
-      // This handles cases like "Jos" vs "JOSÉ DE JESÚS RIOS CASIQUE"
+      // This handles cases like "Jos" vs "JOSÉ DE JESÚS RIOS CASIQUE" and "Jaime J" vs "Jaime J. Casanova Sánchez"
       const filteredNamesArray = namesArray.filter(name => {
         const nameLower = name.toLowerCase();
         // Normalize accented characters for comparison
         const nameNormalized = nameLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        // Remove periods for comparison (handles "Jaime J." vs "Jaime J. Casanova")
+        const nameClean = nameNormalized.replace(/\./g, '');
         
         return !namesArray.some(other => {
           if (other === name) return false;
           
           const otherLower = other.toLowerCase();
           const otherNormalized = otherLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const otherClean = otherNormalized.replace(/\./g, '');
           
-          // Check if the longer name starts with the shorter name (with or without accents)
-          // Example: "Jos" should be filtered out if "José De Jesús" exists
-          return otherNormalized.startsWith(nameNormalized + ' ') || 
-                 otherNormalized.startsWith(nameNormalized) && otherNormalized.length > nameNormalized.length + 2;
+          // Check if the longer name starts with the shorter name (with or without accents/periods)
+          // Example 1: "Jos" should be filtered out if "José De Jesús" exists
+          // Example 2: "Jaime J" should be filtered out if "Jaime J. Casanova Sánchez" exists
+          if (otherClean.startsWith(nameClean + ' ') || otherClean.startsWith(nameClean + '.')) {
+            return true;
+          }
+          
+          // Also check if names match but one is just shorter
+          if (otherClean.startsWith(nameClean) && otherClean.length > nameClean.length + 2) {
+            return true;
+          }
+          
+          return false;
         });
       });
 
@@ -509,7 +521,7 @@ export const DocxPromptReader: React.FC = () => {
       }
 
       return matchesSearch && matchesDate && matchesStatus;
-    });
+    }).reverse(); // Newest prospects at the top
   }, [storedProspects, searchQuery, selectedDate, statusFilter, prospectStatuses]);
 
   const statusCounts = React.useMemo(() => {
@@ -536,6 +548,15 @@ export const DocxPromptReader: React.FC = () => {
   }, [storedProspects]);
 
   const buildPromptText = () => {
+    // IMPORTANT LINK REFERENCES - Add to all templates
+    const linkReferences = `
+IMPORTANT LINK REFERENCES (Only use when user explicitly requests these):
+- When user mentions "avidus", "avidus link", or asks you to "send avidus" → Use: https://avidus.tech/
+- When user mentions "bottleneck", "bottleneck link", "diagnostic link", or asks to "send bottleneck" → Use: https://bottleneckdiagnostic.scoreapp.com/
+
+NOTE: Only include these links when the user specifically asks for them in their follow-up request. Do not add them unsolicited.
+`;
+
     // Main Prompt Template (from instruction lines 12-52)
     if (promptTemplate === 'Main') {
       const modeSpecificInstructions = {
@@ -606,6 +627,8 @@ INPUT VARIABLES
 Personality Tone: ${personalityTone}
 ICP (Ideal Customer Profile): ${icp ? icp : 'If no ICP is provided, analyze the conversation without assuming a specific target audience.'}
 ${uvp ? `UVP: ${uvp}` : ''}
+
+${linkReferences}
 
 OBJECTIVES
 1. Understand the conversation dynamics:
@@ -696,6 +719,8 @@ Your response should be:
 
 Limit output to 3 sentences maximum when used for LinkedIn outreach, ensuring one sentence references the sendee's company, UVP, or notable feature. Always end with a positive, professional closing or engagement signal.
 
+${linkReferences}
+
 Conversation:
 """
 ${inputMessage}
@@ -710,6 +735,8 @@ When appropriate, subtly match the prospect's tone and communication style.
 If the prospect's tone appears aggressive, dismissive, or negative, do not mirror it. Instead, respond in a calm, respectful, and professional manner.
 
 Limit the message to 2–3 ultra-concise sentences that are LinkedIn-friendly, easy to read, and professional. Frame questions or suggestions politely, acknowledge the recipient's context, and end positively.
+
+${linkReferences}
 
 Conversation:
 """
@@ -726,10 +753,48 @@ Also determine whether we should proceed with a follow-up message or mark the le
 When appropriate, subtly match the prospect's tone and communication style.
 If the prospect's tone appears aggressive, dismissive, or negative, do not mirror it. Instead, respond in a calm, respectful, and professional manner.
 
+${linkReferences}
+
 Conversation:
 """
 ${inputMessage}
 """`;
+    }
+
+    // Close Prompt Template - Generates a polite closing message
+    if (promptTemplate === 'Close') {
+      return `You are ${sender}. Based on the conversation history provided, create a polite and professional closing message for LinkedIn.
+
+The message should:
+- Acknowledge that you're leaving things here for now
+- Express openness to future connection if timing is right
+- Include a resource link where they can learn more: https://avidus.tech/
+- Include contact information: +1 646-905-0884
+- Be warm, professional, and leave the door open
+- Be 3-4 sentences maximum
+- Use the prospect's first name from the conversation
+
+Tone: ${personalityTone}
+
+${linkReferences}
+
+Conversation:
+"""
+${inputMessage}
+"""
+
+OUTPUT FORMAT:
+Provide ONLY the closing message text, ready to copy and paste into LinkedIn. Do not include any analysis or explanation.
+
+Example structure (adapt to the conversation):
+Hi [FirstName],
+
+I'll leave things here for now. If the timing's right in the future, I'd be happy to connect. Until then, you're always welcome to explore how Avidus supports businesses like yours here: https://avidus.tech/
+
+And if you'd like to reach out directly, you can contact us at +1 646-905-0884.
+
+Best,
+${sender}`;
     }
 
     return '';
@@ -886,8 +951,8 @@ ${inputMessage}
           {/* Prompt Template Selector */}
           <div className="mb-3 shrink-0">
             <label className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1 block">Prompt Template</label>
-            <div className="grid grid-cols-2 gap-1 bg-zinc-950/50 border border-zinc-800 rounded-xl p-1">
-              {(['Main', 'Lengthy', 'Ultra-Short', 'Follow-up-Specific'] as const).map((t) => (
+            <div className="grid grid-cols-3 gap-1 bg-zinc-950/50 border border-zinc-800 rounded-xl p-1">
+              {(['Main', 'Lengthy', 'Ultra-Short', 'Follow-up-Specific', 'Close'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setPromptTemplate(t)}
