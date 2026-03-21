@@ -22,6 +22,7 @@ export const DocxPromptReader: React.FC = () => {
   const [mode, setMode] = useState<'Reply' | 'Follow-up' | 'Close'>('Reply');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [statusFilter, setStatusFilter] = useState<'none' | 'follow-up' | 'not-interested'>('none');
   
   const [prospectStatuses, setProspectStatuses] = useState<Record<string, 'none' | 'not-interested' | number>>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_STATUSES);
@@ -303,21 +304,32 @@ export const DocxPromptReader: React.FC = () => {
     return storedProspects.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesDate = p.addedAt === selectedDate;
-      return matchesSearch && matchesDate;
+
+      let matchesStatus = true;
+      if (statusFilter === 'follow-up') {
+        matchesStatus = typeof prospectStatuses[p.name] === 'number';
+      } else if (statusFilter === 'not-interested') {
+        matchesStatus = prospectStatuses[p.name] === 'not-interested';
+      }
+
+      return matchesSearch && matchesDate && matchesStatus;
     });
-  }, [storedProspects, searchQuery, selectedDate]);
+  }, [storedProspects, searchQuery, selectedDate, statusFilter, prospectStatuses]);
 
   const statusCounts = React.useMemo(() => {
     const counts = {
       notInterested: 0,
       followUp: 0
     };
-    filteredProspects.forEach(p => {
-      if (prospectStatuses[p.name] === 'not-interested') counts.notInterested++;
-      if (typeof prospectStatuses[p.name] === 'number') counts.followUp++;
+    // Count from ALL prospects on the selected date, not filtered by status
+    storedProspects.forEach(p => {
+      if (p.addedAt === selectedDate) {
+        if (prospectStatuses[p.name] === 'not-interested') counts.notInterested++;
+        if (typeof prospectStatuses[p.name] === 'number') counts.followUp++;
+      }
     });
     return counts;
-  }, [filteredProspects, prospectStatuses]);
+  }, [storedProspects, selectedDate, prospectStatuses]);
 
   const availableDates = React.useMemo(() => {
     const dates = new Set<string>();
@@ -598,18 +610,42 @@ Why Prospect Is Not Interested:
           <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden flex flex-col min-h-0">
             <div className="p-3 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center shrink-0">
             <div className="flex gap-2">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-500 border border-zinc-700 uppercase tracking-tight">
-                {filteredProspects.length} Showing
-              </span>
+              <button
+                onClick={() => setStatusFilter('none')}
+                className={`
+                  text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight border transition-all cursor-pointer
+                  ${statusFilter === 'none'
+                    ? 'bg-purple-600 text-white border-purple-500'
+                    : 'bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20'}
+                `}
+              >
+                {storedProspects.filter(p => p.addedAt === selectedDate).length} Total
+              </button>
               {statusCounts.followUp > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-tight">
+                <button
+                  onClick={() => setStatusFilter(statusFilter === 'follow-up' ? 'none' : 'follow-up')}
+                  className={`
+                    text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight border transition-all cursor-pointer
+                    ${statusFilter === 'follow-up'
+                      ? 'bg-blue-600 text-white border-blue-500'
+                      : 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20'}
+                  `}
+                >
                   {statusCounts.followUp} Follow-up
-                </span>
+                </button>
               )}
               {statusCounts.notInterested > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 uppercase tracking-tight">
+                <button
+                  onClick={() => setStatusFilter(statusFilter === 'not-interested' ? 'none' : 'not-interested')}
+                  className={`
+                    text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight border transition-all cursor-pointer
+                    ${statusFilter === 'not-interested'
+                      ? 'bg-red-600 text-white border-red-500'
+                      : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'}
+                  `}
+                >
                   {statusCounts.notInterested} Not Interested
-                </span>
+                </button>
               )}
             </div>
           </div>

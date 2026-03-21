@@ -149,15 +149,15 @@ function App() {
               onClick={() => setActiveTab('list')}
               className={`
                 flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                ${activeTab === 'list' 
-                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                ${activeTab === 'list'
+                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
               `}
             >
               <ListTodo className="w-4 h-4" />
-              Simple List 
+              Simple List
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 uppercase tracking-tight">
-                {names.length}
+                {names.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length}
               </span>
             </button>
           </div>
