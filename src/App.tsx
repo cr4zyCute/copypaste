@@ -12,6 +12,7 @@ import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, List
 type Row = Record<string, unknown>;
 
 const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
+const SIMPLE_LIST_2_STORAGE_KEY = 'simple_manual_list_2';
 
 function App() {
   const [data, setData] = useState<Row[]>([]);
@@ -36,20 +37,45 @@ function App() {
     }
   });
 
+  const [names2, setNames2] = useState<NameEntry[]>(() => {
+    const saved = localStorage.getItem(SIMPLE_LIST_2_STORAGE_KEY);
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed.map((entry: any) => ({
+        ...entry,
+        addedAt: entry.addedAt || new Date(entry.timestamp).toISOString().split('T')[0]
+      }));
+    } catch {
+      return [];
+    }
+  });
+
   // Persist names when they change
   useEffect(() => {
     localStorage.setItem(SIMPLE_LIST_STORAGE_KEY, JSON.stringify(names));
   }, [names]);
 
+  useEffect(() => {
+    localStorage.setItem(SIMPLE_LIST_2_STORAGE_KEY, JSON.stringify(names2));
+  }, [names2]);
+
   // Function to refresh names from localStorage (for MessageCleaner sync)
   const refreshNames = () => {
-    const saved = localStorage.getItem(SIMPLE_LIST_STORAGE_KEY);
-    if (saved) {
+    const saved1 = localStorage.getItem(SIMPLE_LIST_STORAGE_KEY);
+    if (saved1) {
       try {
-        const parsed = JSON.parse(saved);
-        setNames(parsed);
+        setNames(JSON.parse(saved1));
       } catch (e) {
-        console.error('Error refreshing names:', e);
+        console.error('Error refreshing names 1:', e);
+      }
+    }
+    const saved2 = localStorage.getItem(SIMPLE_LIST_2_STORAGE_KEY);
+    if (saved2) {
+      try {
+        setNames2(JSON.parse(saved2));
+      } catch (e) {
+        console.error('Error refreshing names 2:', e);
       }
     }
   };
@@ -157,7 +183,8 @@ function App() {
               <ListTodo className="w-4 h-4" />
               Simple List
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 uppercase tracking-tight">
-                {names.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length}
+                {names.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length + 
+                 names2.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length}
               </span>
             </button>
           </div>
@@ -237,7 +264,12 @@ function App() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
               >
-                <SimpleList names={names} setNames={setNames} />
+                <SimpleList 
+                  names={names} 
+                  setNames={setNames} 
+                  names2={names2} 
+                  setNames2={setNames2} 
+                />
               </motion.div>
             )}
           </AnimatePresence>
