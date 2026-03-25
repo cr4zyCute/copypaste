@@ -21,6 +21,30 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Follow-up logic shared with App
+  const getReminderStatus = (entry: NameEntry) => {
+    if (!entry.connectedAt) return { text: '', color: '', isDue: false };
+    if (entry.followUpDone) return { text: 'Done', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', isDue: false };
+    
+    const connectedDate = new Date(entry.connectedAt);
+    connectedDate.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(connectedDate);
+    targetDate.setDate(targetDate.getDate() + 3);
+    
+    const nowDate = new Date();
+    nowDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = targetDate.getTime() - nowDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 1) return { text: `In ${diffDays} days`, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', isDue: false };
+    if (diffDays === 1) return { text: 'Tomorrow', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', isDue: false };
+    if (diffDays === 0) return { text: 'Today', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20', isDue: true };
+    return { text: `Overdue (${Math.abs(diffDays)}d)`, color: 'text-red-400 bg-red-500/10 border-red-500/20', isDue: true };
+  };
 
   // Lifted state from SimpleList.tsx
   const [names, setNames] = useState<NameEntry[]>(() => {
@@ -51,38 +75,55 @@ function App() {
     }
   });
 
-  // Global Toast State
-  const [globalToastDismissed, setGlobalToastDismissed] = useState(false);
-  
-  // Follow-up logic shared with App
-  const getReminderStatus = (entry: NameEntry) => {
-    if (!entry.connectedAt) return { text: '', color: '', isDue: false };
-    if (entry.followUpDone) return { text: 'Done', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', isDue: false };
-    
-    const connectedDate = new Date(entry.connectedAt);
-    connectedDate.setHours(0, 0, 0, 0);
-    
-    const targetDate = new Date(connectedDate);
-    targetDate.setDate(targetDate.getDate() + 3);
-    
-    const nowDate = new Date();
-    nowDate.setHours(0, 0, 0, 0);
-    
-    const diffTime = targetDate.getTime() - nowDate.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays > 1) return { text: `In ${diffDays} days`, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', isDue: false };
-    if (diffDays === 1) return { text: 'Tomorrow', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', isDue: false };
-    if (diffDays === 0) return { text: 'Today', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20', isDue: true };
-    return { text: `Overdue (${Math.abs(diffDays)}d)`, color: 'text-red-400 bg-red-500/10 border-red-500/20', isDue: true };
-  };
-
   const activeFollowUps = useMemo(() => {
     const allNames = [...names, ...names2];
     return allNames.filter(n => {
       return n.connected && !n.followUpDone;
     });
   }, [names, names2]);
+
+  const dueFollowUpsCount = useMemo(() => {
+    return activeFollowUps.filter(n => getReminderStatus(n).isDue).length;
+  }, [activeFollowUps, getReminderStatus]);
+
+  // Global Toast State
+  const [lastDismissedCount, setLastDismissedCount] = useState(() => {
+    return Number(localStorage.getItem('global_toast_dismissed_count') || 0);
+  });
+
+  const [lastDismissedDueCount, setLastDismissedDueCount] = useState(() => {
+    return Number(localStorage.getItem('global_toast_dismissed_due_count') || 0);
+  });
+
+  const dismissGlobalToast = () => {
+    setLastDismissedCount(activeFollowUps.length);
+    setLastDismissedDueCount(dueFollowUpsCount);
+    localStorage.setItem('global_toast_dismissed_count', String(activeFollowUps.length));
+    localStorage.setItem('global_toast_dismissed_due_count', String(dueFollowUpsCount));
+  };
+
+  // Reset dismissed counts if actual counts drop below them
+  useEffect(() => {
+    if (activeFollowUps.length < lastDismissedCount || dueFollowUpsCount < lastDismissedDueCount) {
+      const newCount = Math.min(activeFollowUps.length, lastDismissedCount);
+      const newDueCount = Math.min(dueFollowUpsCount, lastDismissedDueCount);
+      
+      setLastDismissedCount(newCount);
+      setLastDismissedDueCount(newDueCount);
+      localStorage.setItem('global_toast_dismissed_count', String(newCount));
+      localStorage.setItem('global_toast_dismissed_due_count', String(newDueCount));
+    }
+  }, [activeFollowUps.length, dueFollowUpsCount, lastDismissedCount, lastDismissedDueCount]);
+
+  const shouldShowToast = useMemo(() => {
+    if (activeFollowUps.length === 0) return false;
+    
+    // Show if total count increased OR if someone new became "Due"
+    const hasNewFollowUps = activeFollowUps.length > lastDismissedCount;
+    const hasNewDueFollowUps = dueFollowUpsCount > lastDismissedDueCount;
+    
+    return hasNewFollowUps || hasNewDueFollowUps;
+  }, [activeFollowUps.length, dueFollowUpsCount, lastDismissedCount, lastDismissedDueCount]);
 
   // Persist names when they change
   useEffect(() => {
@@ -128,65 +169,184 @@ function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-blue-500/30">
+      {/* Notification Bell Icon with Dropdown */}
+      <div className="fixed top-6 right-6 z-[110]">
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className={`
+              relative p-2.5 rounded-xl border transition-all duration-200 group
+              ${showNotifications 
+                ? 'bg-zinc-800 border-zinc-700 text-orange-400 shadow-lg shadow-orange-900/10' 
+                : 'bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'}
+            `}
+          >
+            <Bell className={`w-5 h-5 transition-transform duration-300 ${activeFollowUps.length > 0 ? 'animate-none group-hover:rotate-12' : ''}`} />
+            
+            {activeFollowUps.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 border-2 border-zinc-950">
+                {activeFollowUps.length}
+              </span>
+            )}
+          </button>
+
+          <AnimatePresence>
+            {showNotifications && (
+              <>
+                {/* Backdrop to close when clicking outside */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowNotifications(false)}
+                  className="fixed inset-0 z-[-1]"
+                />
+                
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-3 w-80 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50 shadow-black/50"
+                >
+                  <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
+                    <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                      Notifications
+                      {activeFollowUps.length > 0 && (
+                        <span className="bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full text-[10px]">
+                          {activeFollowUps.length}
+                        </span>
+                      )}
+                    </h3>
+                    <button 
+                      onClick={() => setShowNotifications(false)}
+                      className="text-zinc-500 hover:text-zinc-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
+                    {activeFollowUps.length > 0 ? (
+                      <div className="divide-y divide-zinc-800/50">
+                        {activeFollowUps.map(n => {
+                          const status = getReminderStatus(n);
+                          return (
+                            <div key={`notif-item-${n.id}`} className="p-3 hover:bg-zinc-800/50 transition-colors group">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="text-xs font-semibold text-zinc-200 truncate pr-2">{n.name}</span>
+                                <span className={`shrink-0 text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight border ${status.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 ')}`}>
+                                  {status.text}
+                                </span>
+                              </div>
+                              {n.jobPosition && (
+                                <p className="text-[10px] text-zinc-500 truncate mb-2">{n.jobPosition}</p>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setActiveTab('list');
+                                  setShowNotifications(false);
+                                }}
+                                className="text-[10px] text-orange-400 font-bold hover:text-orange-300 flex items-center gap-1 transition-colors"
+                              >
+                                View Connection
+                                <Sparkles className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center">
+                        <div className="bg-zinc-800/50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <Bell className="w-5 h-5 text-zinc-600" />
+                        </div>
+                        <p className="text-xs text-zinc-500">No new follow-ups at the moment.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {activeFollowUps.length > 0 && (
+                    <div className="p-3 bg-zinc-900/50 border-t border-zinc-800">
+                      <button
+                        onClick={() => {
+                          setActiveTab('list');
+                          setShowNotifications(false);
+                        }}
+                        className="w-full bg-orange-500 hover:bg-orange-400 text-white text-xs font-bold py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+                      >
+                        Go to Follow-ups List
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
       {/* Global Toast Notifications */}
       <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3">
         <AnimatePresence>
-          {activeFollowUps.length > 0 && !globalToastDismissed && (
+          {shouldShowToast && (
             <motion.div
-              initial={{ opacity: 0, x: 50, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
+              initial={{ opacity: 0, x: 50, scale: 0.9, y: 0 }}
+              animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-              className="bg-zinc-900 border border-orange-500/30 shadow-xl shadow-orange-900/20 rounded-xl p-4 w-80 flex gap-4"
+              whileHover={{ scale: 1.01 }}
+              className="group relative bg-zinc-900/90 backdrop-blur-md border border-orange-500/20 shadow-xl shadow-orange-900/20 rounded-xl p-3 w-72 flex gap-3 overflow-hidden"
             >
-              <div className="bg-orange-500/10 p-2 rounded-lg h-fit">
-                <Bell className="w-5 h-5 text-orange-400" />
+              <div className="relative shrink-0">
+                <div className="bg-orange-500/10 p-2 rounded-lg border border-orange-500/10">
+                  <Bell className="w-4 h-4 text-orange-400" />
+                </div>
               </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <h4 className="text-sm font-bold text-zinc-100 mb-1">
+
+              <div className="flex-1 min-w-0 relative">
+                <button 
+                  onClick={dismissGlobalToast}
+                  className="absolute -top-1 -right-1 p-1 rounded-full hover:bg-zinc-800 text-zinc-500 hover:text-white transition-all z-10"
+                  title="Dismiss"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+
+                <div className="mb-2 pr-4">
+                  <h4 className="text-[13px] font-bold text-white tracking-tight leading-tight truncate">
                     {activeFollowUps.length} Active Follow-up{activeFollowUps.length > 1 ? 's' : ''}
                   </h4>
-                  <button 
-                    onClick={() => setGlobalToastDismissed(true)}
-                    className="text-zinc-500 hover:text-zinc-300 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
                 </div>
-                <div className="text-xs text-zinc-400 mb-3 space-y-1">
-                  <p>You have pending connections with:</p>
-                  <ul className="list-disc list-inside pl-2 font-semibold text-zinc-200">
-                    {activeFollowUps.slice(0, 3).map(n => {
-                      const status = getReminderStatus(n);
-                      return (
-                        <li key={`global-toast-name-${n.id}`} className="truncate flex justify-between items-center gap-2">
-                          <span className="truncate">{n.name}</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${status.color.replace('border-', '')}`}>
-                            {status.text}
-                          </span>
-                        </li>
-                      );
-                    })}
-                    {activeFollowUps.length > 3 && (
-                      <li className="text-zinc-500 italic font-normal mt-1">
-                        + {activeFollowUps.length - 3} more
-                      </li>
-                    )}
-                  </ul>
+
+                <div className="space-y-1.5 mb-3">
+                  {activeFollowUps.slice(0, 2).map(n => {
+                    const status = getReminderStatus(n);
+                    return (
+                      <div key={`global-toast-name-${n.id}`} className="flex justify-between items-center gap-2">
+                        <span className="text-[11px] font-medium text-zinc-300 truncate flex-1">{n.name}</span>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight border ${status.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 ')}`}>
+                          {status.text}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {activeFollowUps.length > 2 && (
+                    <div className="text-[9px] text-zinc-500 italic flex items-center gap-1.5">
+                      <span className="w-0.5 h-0.5 bg-zinc-700 rounded-full" />
+                      +{activeFollowUps.length - 2} more
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setActiveTab('list');
-                      // Note: We can't directly set the sub-tab here without lifting that state too,
-                      // but navigating to the list tab gets them close enough.
-                      setGlobalToastDismissed(true);
-                    }}
-                    className="w-full bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 text-xs font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2"
-                  >
-                    View Follow-ups
-                  </button>
-                </div>
+
+                <button
+                  onClick={() => {
+                    setActiveTab('list');
+                    dismissGlobalToast();
+                  }}
+                  className="w-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-[10px] font-bold py-1.5 rounded-lg border border-orange-500/20 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span>View All</span>
+                  <Sparkles className="w-3 h-3" />
+                </button>
               </div>
             </motion.div>
           )}

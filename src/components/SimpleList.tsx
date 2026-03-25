@@ -491,19 +491,19 @@ Happy to connect.`;
                         </div>
                         
                         {activeSubTab === 'reminders' ? (
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
                             {entry.connectedAt && (
-                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${getReminderStatus(entry).color}`}>
+                              <span className={`px-2 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getReminderStatus(entry).color}`}>
                                 {getReminderStatus(entry).text}
                               </span>
                             )}
                             {!entry.followUpDone && (
                               <button
                                 onClick={() => handleToggleFollowUpDone(entry.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all"
+                                className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 rounded-md transition-all"
+                                title="Mark Done"
                               >
-                                <Check className="w-3 h-3" />
-                                Mark Done
+                                <Check className="w-4 h-4" />
                               </button>
                             )}
                             <button
