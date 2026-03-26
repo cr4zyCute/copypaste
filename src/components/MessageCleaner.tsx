@@ -6,10 +6,10 @@ const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
 const AUTO_ADD_STORAGE_KEY = 'message_cleaner_auto_add';
 
 interface MessageCleanerProps {
-  onNameAdded?: () => void;
+  onNamesUpdated?: () => void;
 }
 
-export const MessageCleaner: React.FC<MessageCleanerProps> = ({ onNameAdded }) => {
+export const MessageCleaner: React.FC<MessageCleanerProps> = ({ onNamesUpdated }) => {
   const [inputHtml, setInputHtml] = useState('');
   const [copied, setCopied] = useState(false);
   const [listAdded, setListAdded] = useState(false);
@@ -469,7 +469,7 @@ export const MessageCleaner: React.FC<MessageCleanerProps> = ({ onNameAdded }) =
       localStorage.setItem(SIMPLE_LIST_STORAGE_KEY, JSON.stringify(names));
       
       // Notify parent to refresh state
-      if (onNameAdded) onNameAdded();
+      if (onNamesUpdated) onNamesUpdated();
       
       setListAdded(true);
       setTimeout(() => setListAdded(false), 3000);

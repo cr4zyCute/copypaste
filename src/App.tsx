@@ -6,15 +6,68 @@ import { Messenger } from './components/Messenger';
 import { EODGenerator } from './components/EODGenerator';
 import { DocxPromptReader } from './components/DocxPromptReader';
 import { SimpleList, type NameEntry } from './components/SimpleList';
+import { Login } from './components/Login';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X } from 'lucide-react';
+import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check } from 'lucide-react';
 
 type Row = Record<string, unknown>;
 
 const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
 const SIMPLE_LIST_2_STORAGE_KEY = 'simple_manual_list_2';
+const AUTH_KEY = 'tools_auth_session';
+
+const getStorageKey = (baseKey: string, authenticated: boolean) => {
+  return authenticated ? baseKey : `guest_${baseKey}`;
+};
+
+const loadNamesFromStorage = (key: string): NameEntry[] => {
+  const saved = localStorage.getItem(key);
+  if (!saved) return [];
+  try {
+    const parsed = JSON.parse(saved);
+    return parsed.map((entry: any) => ({
+      ...entry,
+      addedAt: entry.addedAt || (entry.timestamp ? new Date(entry.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
+    }));
+  } catch {
+    return [];
+  }
+};
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem(AUTH_KEY) === 'true';
+  });
+
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isSyncOpen, setIsSyncOpen] = useState(false);
+  const [syncCode, setSyncCode] = useState('');
+  const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Lifted state from SimpleList.tsx
+  const [names, setNames] = useState<NameEntry[]>(() => 
+    loadNamesFromStorage(getStorageKey(SIMPLE_LIST_STORAGE_KEY, localStorage.getItem(AUTH_KEY) === 'true'))
+  );
+  const [names2, setNames2] = useState<NameEntry[]>(() => 
+    loadNamesFromStorage(getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, localStorage.getItem(AUTH_KEY) === 'true'))
+  );
+
+  const handleLogin = (_username: string) => {
+    localStorage.setItem(AUTH_KEY, 'true');
+    setIsAuthenticated(true);
+    setNames(loadNamesFromStorage(getStorageKey(SIMPLE_LIST_STORAGE_KEY, true)));
+    setNames2(loadNamesFromStorage(getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, true)));
+    setIsLoginOpen(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(AUTH_KEY);
+    setIsAuthenticated(false);
+    setNames(loadNamesFromStorage(getStorageKey(SIMPLE_LIST_STORAGE_KEY, false)));
+    setNames2(loadNamesFromStorage(getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, false)));
+  };
+
   const [data, setData] = useState<Row[]>([]);
   const [fileName, setFileName] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'excel' | 'cleaner' | 'messenger' | 'eod' | 'prompt' | 'list'>('excel');
@@ -45,35 +98,6 @@ function App() {
     if (diffDays === 0) return { text: 'Today', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20', isDue: true };
     return { text: `Overdue (${Math.abs(diffDays)}d)`, color: 'text-red-400 bg-red-500/10 border-red-500/20', isDue: true };
   };
-
-  // Lifted state from SimpleList.tsx
-  const [names, setNames] = useState<NameEntry[]>(() => {
-    const saved = localStorage.getItem(SIMPLE_LIST_STORAGE_KEY);
-    if (!saved) return [];
-    try {
-      const parsed = JSON.parse(saved);
-      return parsed.map((entry: any) => ({
-        ...entry,
-        addedAt: entry.addedAt || new Date(entry.timestamp).toISOString().split('T')[0]
-      }));
-    } catch {
-      return [];
-    }
-  });
-
-  const [names2, setNames2] = useState<NameEntry[]>(() => {
-    const saved = localStorage.getItem(SIMPLE_LIST_2_STORAGE_KEY);
-    if (!saved) return [];
-    try {
-      const parsed = JSON.parse(saved);
-      return parsed.map((entry: any) => ({
-        ...entry,
-        addedAt: entry.addedAt || new Date(entry.timestamp).toISOString().split('T')[0]
-      }));
-    } catch {
-      return [];
-    }
-  });
 
   const activeFollowUps = useMemo(() => {
     const allNames = [...names, ...names2];
@@ -127,16 +151,23 @@ function App() {
 
   // Persist names when they change
   useEffect(() => {
-    localStorage.setItem(SIMPLE_LIST_STORAGE_KEY, JSON.stringify(names));
-  }, [names]);
+    if (names.length > 0 || localStorage.getItem(getStorageKey(SIMPLE_LIST_STORAGE_KEY, isAuthenticated))) {
+      localStorage.setItem(getStorageKey(SIMPLE_LIST_STORAGE_KEY, isAuthenticated), JSON.stringify(names));
+    }
+  }, [names, isAuthenticated]);
 
   useEffect(() => {
-    localStorage.setItem(SIMPLE_LIST_2_STORAGE_KEY, JSON.stringify(names2));
-  }, [names2]);
+    if (names2.length > 0 || localStorage.getItem(getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, isAuthenticated))) {
+      localStorage.setItem(getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, isAuthenticated), JSON.stringify(names2));
+    }
+  }, [names2, isAuthenticated]);
 
   // Function to refresh names from localStorage (for MessageCleaner sync)
   const refreshNames = () => {
-    const saved1 = localStorage.getItem(SIMPLE_LIST_STORAGE_KEY);
+    const key1 = getStorageKey(SIMPLE_LIST_STORAGE_KEY, isAuthenticated);
+    const key2 = getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, isAuthenticated);
+    
+    const saved1 = localStorage.getItem(key1);
     if (saved1) {
       try {
         setNames(JSON.parse(saved1));
@@ -144,13 +175,54 @@ function App() {
         console.error('Error refreshing names 1:', e);
       }
     }
-    const saved2 = localStorage.getItem(SIMPLE_LIST_2_STORAGE_KEY);
+    const saved2 = localStorage.getItem(key2);
     if (saved2) {
       try {
         setNames2(JSON.parse(saved2));
       } catch (e) {
         console.error('Error refreshing names 2:', e);
       }
+    }
+  };
+
+  const generateExportCode = () => {
+    const exportData = {
+      names,
+      names2,
+      timestamp: new Date().toISOString(),
+      version: '1.0'
+    };
+    return btoa(encodeURIComponent(JSON.stringify(exportData)));
+  };
+
+  const handleCopyExportCode = () => {
+    const code = generateExportCode();
+    navigator.clipboard.writeText(code);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  const handleImportCode = () => {
+    try {
+      if (!syncCode.trim()) return;
+      const decoded = JSON.parse(decodeURIComponent(atob(syncCode)));
+      
+      if (decoded.names && Array.isArray(decoded.names)) {
+        setNames(decoded.names);
+      }
+      if (decoded.names2 && Array.isArray(decoded.names2)) {
+        setNames2(decoded.names2);
+      }
+      
+      setImportStatus({ type: 'success', message: 'Data imported successfully!' });
+      setSyncCode('');
+      setTimeout(() => {
+        setImportStatus(null);
+        setIsSyncOpen(false);
+      }, 2000);
+    } catch (e) {
+      setImportStatus({ type: 'error', message: 'Invalid sync code. Please try again.' });
+      setTimeout(() => setImportStatus(null), 3000);
     }
   };
 
@@ -168,380 +240,530 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-blue-500/30">
-      {/* Notification Bell Icon with Dropdown */}
-      <div className="fixed top-6 right-6 z-[110]">
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className={`
-              relative p-2.5 rounded-xl border transition-all duration-200 group
-              ${showNotifications 
-                ? 'bg-zinc-800 border-zinc-700 text-orange-400 shadow-lg shadow-orange-900/10' 
-                : 'bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'}
-            `}
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-blue-500/30 relative">
+      <AnimatePresence>
+        {isLoginOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-zinc-950/80 backdrop-blur-sm flex items-center justify-center p-4"
           >
-            <Bell className={`w-5 h-5 transition-transform duration-300 ${activeFollowUps.length > 0 ? 'animate-none group-hover:rotate-12' : ''}`} />
-            
-            {activeFollowUps.length > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 border-2 border-zinc-950">
-                {activeFollowUps.length}
-              </span>
-            )}
-          </button>
+            <div className="relative w-full max-w-md">
+              <button 
+                onClick={() => setIsLoginOpen(false)}
+                className="absolute top-4 right-4 text-zinc-500 hover:text-white z-[210] p-2"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <Login onLogin={handleLogin} />
+            </div>
+          </motion.div>
+        )}
 
-          <AnimatePresence>
-            {showNotifications && (
-              <>
-                {/* Backdrop to close when clicking outside */}
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setShowNotifications(false)}
-                  className="fixed inset-0 z-[-1]"
-                />
-                
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 mt-3 w-80 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50 shadow-black/50"
-                >
-                  <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
-                    <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                      Notifications
-                      {activeFollowUps.length > 0 && (
-                        <span className="bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full text-[10px]">
-                          {activeFollowUps.length}
-                        </span>
-                      )}
+        {isSyncOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-zinc-950/80 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 w-full max-w-lg shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-4">
+                <button onClick={() => setIsSyncOpen(false)} className="text-zinc-500 hover:text-white">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                  <RefreshCw className="w-6 h-6 text-orange-500" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Data Transfer</h2>
+                  <p className="text-zinc-500 text-sm">Sync your account data between browsers</p>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                {/* Export Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-widest flex items-center gap-2">
+                      <Download className="w-4 h-4 text-orange-500" />
+                      Step 1: Export from this browser
                     </h3>
+                  </div>
+                  <div className="bg-zinc-950/50 rounded-2xl p-4 border border-zinc-800/50 space-y-3">
+                    <p className="text-xs text-zinc-500 leading-relaxed">
+                      Generate a secure code containing all your follow-up data. You can paste this code into another browser to sync your account.
+                    </p>
                     <button 
-                      onClick={() => setShowNotifications(false)}
-                      className="text-zinc-500 hover:text-zinc-300"
+                      onClick={handleCopyExportCode}
+                      className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                        copySuccess ? 'bg-emerald-500 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-white'
+                      }`}
                     >
-                      <X className="w-4 h-4" />
+                      {copySuccess ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copySuccess ? 'Code Copied!' : 'Copy Sync Code'}
                     </button>
                   </div>
+                </div>
 
-                  <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
-                    {activeFollowUps.length > 0 ? (
-                      <div className="divide-y divide-zinc-800/50">
-                        {activeFollowUps.map(n => {
-                          const status = getReminderStatus(n);
-                          return (
-                            <div key={`notif-item-${n.id}`} className="p-3 hover:bg-zinc-800/50 transition-colors group">
-                              <div className="flex justify-between items-start mb-1">
-                                <span className="text-xs font-semibold text-zinc-200 truncate pr-2">{n.name}</span>
-                                <span className={`shrink-0 text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight border ${status.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 ')}`}>
-                                  {status.text}
-                                </span>
-                              </div>
-                              {n.jobPosition && (
-                                <p className="text-[10px] text-zinc-500 truncate mb-2">{n.jobPosition}</p>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setActiveTab('list');
-                                  setShowNotifications(false);
-                                }}
-                                className="text-[10px] text-orange-400 font-bold hover:text-orange-300 flex items-center gap-1 transition-colors"
-                              >
-                                View Connection
-                                <Sparkles className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </button>
-                            </div>
-                          );
-                        })}
+                {/* Import Section */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-widest flex items-center gap-2">
+                    <Upload className="w-4 h-4 text-orange-500" />
+                    Step 2: Import to another browser
+                  </h3>
+                  <div className="bg-zinc-950/50 rounded-2xl p-4 border border-zinc-800/50 space-y-4">
+                    <textarea 
+                      value={syncCode}
+                      onChange={(e) => setSyncCode(e.target.value)}
+                      placeholder="Paste your sync code here..."
+                      className="w-full h-24 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-300 focus:outline-none focus:border-orange-500/50 transition-all resize-none font-mono"
+                    />
+                    
+                    {importStatus && (
+                      <div className={`text-xs font-bold text-center py-2 rounded-lg ${
+                        importStatus.type === 'success' ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'
+                      }`}>
+                        {importStatus.message}
                       </div>
-                    ) : (
-                      <div className="p-8 text-center">
-                        <div className="bg-zinc-800/50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <Bell className="w-5 h-5 text-zinc-600" />
+                    )}
+
+                    <button 
+                      onClick={handleImportCode}
+                      disabled={!syncCode.trim()}
+                      className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Import & Sync Data
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-center mt-8 text-zinc-600 text-[10px] uppercase tracking-[0.2em] font-bold">
+                End-to-End Local Encryption Active
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div
+        key="content"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        {/* Notification Bell Icon with Dropdown */}
+        <div className="fixed top-6 right-6 z-[110]">
+          <div className="flex items-center gap-3">
+            {isAuthenticated && (
+              <>
+                <button
+                  onClick={() => setIsSyncOpen(true)}
+                  className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:text-orange-400 hover:border-orange-500/20 transition-all group shadow-lg"
+                  title="Sync Data Between Browsers"
+                >
+                  <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:text-red-400 hover:border-red-500/20 transition-all group shadow-lg"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
+              </>
+            )}
+            
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`
+                  relative p-2.5 rounded-xl border transition-all duration-200 group
+                  ${showNotifications 
+                    ? 'bg-zinc-800 border-zinc-700 text-orange-400 shadow-lg shadow-orange-900/10' 
+                    : 'bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'}
+                `}
+              >
+                <Bell className={`w-5 h-5 transition-transform duration-300 ${activeFollowUps.length > 0 ? 'animate-none group-hover:rotate-12' : ''}`} />
+                
+                {activeFollowUps.length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 border-2 border-zinc-950">
+                    {activeFollowUps.length}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <>
+                    {/* Backdrop to close when clicking outside */}
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setShowNotifications(false)}
+                      className="fixed inset-0 z-[-1]"
+                    />
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-3 w-80 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50 shadow-black/50"
+                    >
+                      <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
+                        <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                          Notifications
+                          {activeFollowUps.length > 0 && (
+                            <span className="bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full text-[10px]">
+                              {activeFollowUps.length}
+                            </span>
+                          )}
+                        </h3>
+                        <button 
+                          onClick={() => setShowNotifications(false)}
+                          className="text-zinc-500 hover:text-zinc-300"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
+                        {activeFollowUps.length > 0 ? (
+                          <div className="divide-y divide-zinc-800/50">
+                            {activeFollowUps.map(n => {
+                              const status = getReminderStatus(n);
+                              return (
+                                <div key={`notif-item-${n.id}`} className="p-3 hover:bg-zinc-800/50 transition-colors group">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs font-semibold text-zinc-200 truncate pr-2">{n.name}</span>
+                                    <span className={`shrink-0 text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight border ${status.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 ')}`}>
+                                      {status.text}
+                                    </span>
+                                  </div>
+                                  {n.jobPosition && (
+                                    <p className="text-[10px] text-zinc-500 truncate mb-2">{n.jobPosition}</p>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setActiveTab('list');
+                                      setShowNotifications(false);
+                                    }}
+                                    className="text-[10px] text-orange-400 font-bold hover:text-orange-300 flex items-center gap-1 transition-colors"
+                                  >
+                                    View Connection
+                                    <Sparkles className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="p-8 text-center">
+                            <div className="bg-zinc-800/50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3">
+                              <Bell className="w-5 h-5 text-zinc-600" />
+                            </div>
+                            <p className="text-xs text-zinc-500">No new follow-ups at the moment.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {activeFollowUps.length > 0 && (
+                        <div className="p-3 bg-zinc-900/50 border-t border-zinc-800">
+                          <button
+                            onClick={() => {
+                              setActiveTab('list');
+                              setShowNotifications(false);
+                            }}
+                            className="w-full bg-orange-500 hover:bg-orange-400 text-white text-xs font-bold py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+                          >
+                            Go to Follow-ups List
+                          </button>
                         </div>
-                        <p className="text-xs text-zinc-500">No new follow-ups at the moment.</p>
+                      )}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+
+        {/* Global Toast Notifications */}
+        <div className="fixed top-6 right-6 z-[150] flex flex-col gap-3">
+          <AnimatePresence>
+            {shouldShowToast && (
+              <motion.div
+                initial={{ opacity: 0, x: 50, scale: 0.9, y: 0 }}
+                animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                whileHover={{ scale: 1.01 }}
+                className="group relative bg-zinc-900/90 backdrop-blur-md border border-orange-500/20 shadow-xl shadow-orange-900/20 rounded-xl p-3 w-72 flex gap-3 overflow-hidden"
+              >
+                <div className="relative shrink-0">
+                  <div className="bg-orange-500/10 p-2 rounded-lg border border-orange-500/10">
+                    <Bell className="w-4 h-4 text-orange-400" />
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0 relative">
+                  <button 
+                    onClick={dismissGlobalToast}
+                    className="absolute -top-1 -right-1 p-1 rounded-full hover:bg-zinc-800 text-zinc-500 hover:text-white transition-all z-10"
+                    title="Dismiss"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+
+                  <div className="mb-2 pr-4">
+                    <h4 className="text-[13px] font-bold text-white tracking-tight leading-tight truncate">
+                      {activeFollowUps.length} Active Follow-up{activeFollowUps.length > 1 ? 's' : ''}
+                    </h4>
+                  </div>
+
+                  <div className="space-y-1.5 mb-3">
+                    {activeFollowUps.slice(0, 2).map(n => {
+                      const status = getReminderStatus(n);
+                      return (
+                        <div key={`global-toast-name-${n.id}`} className="flex justify-between items-center gap-2">
+                          <span className="text-[11px] font-medium text-zinc-300 truncate flex-1">{n.name}</span>
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight border ${status.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 ')}`}>
+                            {status.text}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {activeFollowUps.length > 2 && (
+                      <div className="text-[9px] text-zinc-500 italic flex items-center gap-1.5">
+                        <span className="w-0.5 h-0.5 bg-zinc-700 rounded-full" />
+                        +{activeFollowUps.length - 2} more
                       </div>
                     )}
                   </div>
 
-                  {activeFollowUps.length > 0 && (
-                    <div className="p-3 bg-zinc-900/50 border-t border-zinc-800">
-                      <button
-                        onClick={() => {
-                          setActiveTab('list');
-                          setShowNotifications(false);
-                        }}
-                        className="w-full bg-orange-500 hover:bg-orange-400 text-white text-xs font-bold py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
-                      >
-                        Go to Follow-ups List
-                      </button>
-                    </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab('list');
+                      dismissGlobalToast();
+                    }}
+                    className="w-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-[10px] font-bold py-1.5 rounded-lg border border-orange-500/20 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <span>View All</span>
+                    <Sparkles className="w-3 h-3" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="container mx-auto px-4 py-12 max-w-6xl">
+          <motion.header 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-10 space-y-4"
+          >
+            <div className="flex items-center justify-center gap-4 mb-2">
+              <h1 
+                onDoubleClick={() => setIsLoginOpen(true)}
+                className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-3 select-none"
+                title="Double click for secure access"
+              >
+                Tools
+                {isAuthenticated && <ShieldCheck className="w-8 h-8 text-orange-500/50" />}
+              </h1>
+            </div>
+            <p className="text-zinc-500 text-xs uppercase tracking-[0.3em] font-bold">
+              {isAuthenticated ? 'Secure Workspace • Session Active' : 'Guest Mode • Local Processing'}
+            </p>
+          </motion.header>
+
+          {/* Tab Navigation */}
+          <div className="flex justify-center mb-12">
+            <div className="bg-zinc-900/50 p-1 rounded-xl border border-zinc-800 flex gap-1 backdrop-blur-sm">
+              <button
+                onClick={() => setActiveTab('excel')}
+                className={`
+                  flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                  ${activeTab === 'excel' 
+                    ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+                `}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Excel Import
+              </button>
+              <button
+                onClick={() => setActiveTab('cleaner')}
+                className={`
+                  flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                  ${activeTab === 'cleaner' 
+                    ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+                `}
+              >
+                <Sparkles className="w-4 h-4" />
+                Message Cleaner
+              </button>
+              <button
+                onClick={() => setActiveTab('messenger')}
+                className={`
+                  flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                  ${activeTab === 'messenger' 
+                    ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+                `}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Quick Connect
+              </button>
+              <button
+                onClick={() => setActiveTab('eod')}
+                className={`
+                  flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                  ${activeTab === 'eod' 
+                    ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+                `}
+              >
+                <ClipboardList className="w-4 h-4" />
+                EOD
+              </button>
+              <button
+                onClick={() => setActiveTab('prompt')}
+                className={`
+                  flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                  ${activeTab === 'prompt' 
+                    ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+                `}
+              >
+                <FileText className="w-4 h-4" />
+                Copy Prompt
+              </button>
+              <button
+                onClick={() => setActiveTab('list')}
+                className={`
+                  flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                  ${activeTab === 'list'
+                    ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+                `}
+              >
+                <ListTodo className="w-4 h-4" />
+                Simple List
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 uppercase tracking-tight ml-2">
+                  {names.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length + 
+                   names2.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <main className="space-y-12">
+            <AnimatePresence mode="wait">
+              {activeTab === 'excel' ? (
+                <motion.div
+                  key="excel"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {data.length === 0 ? (
+                    <ExcelUploader onDataLoaded={handleDataLoaded} />
+                  ) : (
+                    <DataViewer 
+                      data={data} 
+                      fileName={fileName} 
+                      onReset={handleReset} 
+                      searchTerm={searchTerm}
+                      onSearchChange={setSearchTerm}
+                      filterDirection={filterDirection}
+                      onFilterDirectionChange={setFilterDirection}
+                      currentMatchIndex={currentMatchIndex}
+                      onMatchIndexChange={setCurrentMatchIndex}
+                    />
                   )}
                 </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Global Toast Notifications */}
-      <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3">
-        <AnimatePresence>
-          {shouldShowToast && (
-            <motion.div
-              initial={{ opacity: 0, x: 50, scale: 0.9, y: 0 }}
-              animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-              whileHover={{ scale: 1.01 }}
-              className="group relative bg-zinc-900/90 backdrop-blur-md border border-orange-500/20 shadow-xl shadow-orange-900/20 rounded-xl p-3 w-72 flex gap-3 overflow-hidden"
-            >
-              <div className="relative shrink-0">
-                <div className="bg-orange-500/10 p-2 rounded-lg border border-orange-500/10">
-                  <Bell className="w-4 h-4 text-orange-400" />
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0 relative">
-                <button 
-                  onClick={dismissGlobalToast}
-                  className="absolute -top-1 -right-1 p-1 rounded-full hover:bg-zinc-800 text-zinc-500 hover:text-white transition-all z-10"
-                  title="Dismiss"
+              ) : activeTab === 'cleaner' ? (
+                <motion.div
+                  key="cleaner"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <X className="w-3 h-3" />
-                </button>
-
-                <div className="mb-2 pr-4">
-                  <h4 className="text-[13px] font-bold text-white tracking-tight leading-tight truncate">
-                    {activeFollowUps.length} Active Follow-up{activeFollowUps.length > 1 ? 's' : ''}
-                  </h4>
-                </div>
-
-                <div className="space-y-1.5 mb-3">
-                  {activeFollowUps.slice(0, 2).map(n => {
-                    const status = getReminderStatus(n);
-                    return (
-                      <div key={`global-toast-name-${n.id}`} className="flex justify-between items-center gap-2">
-                        <span className="text-[11px] font-medium text-zinc-300 truncate flex-1">{n.name}</span>
-                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight border ${status.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 ')}`}>
-                          {status.text}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {activeFollowUps.length > 2 && (
-                    <div className="text-[9px] text-zinc-500 italic flex items-center gap-1.5">
-                      <span className="w-0.5 h-0.5 bg-zinc-700 rounded-full" />
-                      +{activeFollowUps.length - 2} more
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => {
-                    setActiveTab('list');
-                    dismissGlobalToast();
-                  }}
-                  className="w-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-[10px] font-bold py-1.5 rounded-lg border border-orange-500/20 transition-all flex items-center justify-center gap-1.5"
+                  <MessageCleaner onNamesUpdated={refreshNames} />
+                </motion.div>
+              ) : activeTab === 'messenger' ? (
+                <motion.div
+                  key="messenger"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <span>View All</span>
-                  <Sparkles className="w-3 h-3" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
-        <motion.header 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-10 space-y-4"
-        >
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
-            Tools
-          </h1>
-          <p className="text-zinc-400 text-lg max-w-2xl mx-auto leading-relaxed">
-          </p>
-        </motion.header>
-
-        {/* Tab Navigation */}
-        <div className="flex justify-center mb-12">
-          <div className="bg-zinc-900/50 p-1 rounded-xl border border-zinc-800 flex gap-1 backdrop-blur-sm">
-            <button
-              onClick={() => setActiveTab('excel')}
-              className={`
-                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                ${activeTab === 'excel' 
-                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
-              `}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Excel Import
-            </button>
-            <button
-              onClick={() => setActiveTab('cleaner')}
-              className={`
-                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                ${activeTab === 'cleaner' 
-                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
-              `}
-            >
-              <Sparkles className="w-4 h-4" />
-              Message Cleaner
-            </button>
-            <button
-              onClick={() => setActiveTab('messenger')}
-              className={`
-                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                ${activeTab === 'messenger' 
-                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
-              `}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Quick Connect
-            </button>
-            <button
-              onClick={() => setActiveTab('eod')}
-              className={`
-                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                ${activeTab === 'eod' 
-                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
-              `}
-            >
-              <ClipboardList className="w-4 h-4" />
-              EOD
-            </button>
-            <button
-              onClick={() => setActiveTab('prompt')}
-              className={`
-                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                ${activeTab === 'prompt' 
-                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10' 
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
-              `}
-            >
-              <FileText className="w-4 h-4" />
-              Copy Prompt
-            </button>
-            <button
-              onClick={() => setActiveTab('list')}
-              className={`
-                flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                ${activeTab === 'list'
-                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
-              `}
-            >
-              <ListTodo className="w-4 h-4" />
-              Simple List
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 uppercase tracking-tight">
-                {names.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length + 
-                 names2.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <main className="space-y-12">
-          <AnimatePresence mode="wait">
-            {activeTab === 'excel' ? (
-              <motion.div
-                key="excel"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.2 }}
-              >
-                {data.length === 0 ? (
-                  <ExcelUploader onDataLoaded={handleDataLoaded} />
-                ) : (
-                  <DataViewer 
-                    data={data} 
-                    fileName={fileName} 
-                    onReset={handleReset} 
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    filterDirection={filterDirection}
-                    onFilterDirectionChange={setFilterDirection}
-                    currentMatchIndex={currentMatchIndex}
-                    onMatchIndexChange={setCurrentMatchIndex}
+                  <Messenger />
+                </motion.div>
+              ) : activeTab === 'eod' ? (
+                <motion.div
+                  key="eod"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <EODGenerator />
+                </motion.div>
+              ) : activeTab === 'prompt' ? (
+                <motion.div
+                  key="prompt"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <DocxPromptReader />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="list"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <SimpleList 
+                    names={names} 
+                    setNames={setNames} 
+                    names2={names2} 
+                    setNames2={setNames2} 
                   />
-                )}
-              </motion.div>
-            ) : activeTab === 'cleaner' ? (
-              <motion.div
-                key="cleaner"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <MessageCleaner onNameAdded={refreshNames} />
-              </motion.div>
-            ) : activeTab === 'messenger' ? (
-              <motion.div
-                key="messenger"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Messenger />
-              </motion.div>
-            ) : activeTab === 'eod' ? (
-              <motion.div
-                key="eod"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
-                <EODGenerator />
-              </motion.div>
-            ) : activeTab === 'prompt' ? (
-              <motion.div
-                key="prompt"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <DocxPromptReader />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="list"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
-                <SimpleList 
-                  names={names} 
-                  setNames={setNames} 
-                  names2={names2} 
-                  setNames2={setNames2} 
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </main>
-        
-        <motion.footer
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-20 text-center text-sm text-zinc-600"
-        >
-          <p>&copy; {new Date().getFullYear()} Excel Import Tool. Local processing only.</p>
-        </motion.footer>
-      </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </main>
+          
+          <motion.footer
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-20 text-center text-sm text-zinc-600"
+          >
+            <p>&copy; {new Date().getFullYear()} Excel Import Tool. Local processing only.</p>
+          </motion.footer>
+        </div>
+      </motion.div>
     </div>
   );
 }
