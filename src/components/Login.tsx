@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, User, Key, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, Key, ArrowRight, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (username: string) => void;

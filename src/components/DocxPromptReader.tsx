@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon } from 'lucide-react';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
 const STORAGE_KEY_STATUSES = 'linkedin_strategist_statuses';
