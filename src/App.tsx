@@ -6,9 +6,10 @@ import { Messenger } from './components/Messenger';
 import { EODGenerator } from './components/EODGenerator';
 import { DocxPromptReader } from './components/DocxPromptReader';
 import { SimpleList, type NameEntry } from './components/SimpleList';
+import { LinkFormatter } from './components/LinkFormatter';
 import { Login } from './components/Login';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check } from 'lucide-react';
+import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check, Link as LinkIcon } from 'lucide-react';
 
 type Row = Record<string, unknown>;
 
@@ -83,7 +84,7 @@ function App() {
 
   const [data, setData] = useState<Row[]>([]);
   const [fileName, setFileName] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'excel' | 'cleaner' | 'messenger' | 'eod' | 'prompt' | 'list'>('excel');
+  const [activeTab, setActiveTab] = useState<'excel' | 'cleaner' | 'messenger' | 'eod' | 'prompt' | 'list' | 'link-format'>('excel');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -722,6 +723,18 @@ function App() {
                    names2.filter(n => n.addedAt === new Date().toISOString().split('T')[0]).length}
                 </span>
               </button>
+              <button
+                onClick={() => setActiveTab('link-format')}
+                className={`
+                  flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                  ${activeTab === 'link-format'
+                    ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'}
+                `}
+              >
+                <LinkIcon className="w-4 h-4" />
+                Post Links
+              </button>
             </div>
           </div>
 
@@ -791,7 +804,7 @@ function App() {
                 >
                   <DocxPromptReader />
                 </motion.div>
-              ) : (
+              ) : activeTab === 'list' ? (
                 <motion.div
                   key="list"
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -805,6 +818,16 @@ function App() {
                     names2={names2} 
                     setNames2={setNames2} 
                   />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="link-format"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <LinkFormatter />
                 </motion.div>
               )}
             </AnimatePresence>
