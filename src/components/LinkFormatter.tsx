@@ -98,27 +98,27 @@ export const LinkFormatter: React.FC = () => {
               </button>
 
               <button
-                onClick={() => setPrefix('Company Page: ')}
+                onClick={() => setPrefix('Company Reposted: ')}
                 className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
-                  prefix === 'Company Page: '
+                  prefix === 'Company Reposted: '
                     ? 'bg-emerald-600/10 border-emerald-500/50 text-emerald-400'
                     : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:border-zinc-700'
                 }`}
               >
                 <Building2 className="w-5 h-5" />
-                <span className="font-medium">Company Page:</span>
+                <span className="font-medium">Company Reposted:</span>
               </button>
               
               <button
-                onClick={() => setPrefix('Prospect Profile: ')}
+                onClick={() => setPrefix('Prospect Reposted: ')}
                 className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
-                  prefix === 'Prospect Profile: '
+                  prefix === 'Prospect Reposted: '
                     ? 'bg-orange-600/10 border-orange-500/50 text-orange-400'
                     : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:border-zinc-700'
                 }`}
               >
                 <UserCircle className="w-5 h-5" />
-                <span className="font-medium">Prospect Profile:</span>
+                <span className="font-medium">Prospect Reposted:</span>
               </button>
             </div>
           </div>
