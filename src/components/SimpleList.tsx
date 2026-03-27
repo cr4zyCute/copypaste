@@ -35,7 +35,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const currentNames = activeSubTab === 'list1' ? names : activeSubTab === 'list2' ? names2 : [];
   const setCurrentNames = activeSubTab === 'list1' ? setNames : setNames2;
 
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string | 'all'>('all');
   const [namesCopied, setNamesCopied] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
@@ -196,7 +196,9 @@ Happy to connect.`;
 
     return currentNames.filter(n => {
       const matchesSearch = n.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesDate = n.addedAt === selectedDate;
+      
+      // Show ALL if 'all' is selected, otherwise match date
+      const matchesDate = selectedDate === 'all' || n.addedAt === selectedDate;
       
       let matchesStatus = true;
       if (activeSubTab === 'list2') {
@@ -361,6 +363,23 @@ Happy to connect.`;
               <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                 <Calendar className="w-4 h-4 text-zinc-500 shrink-0" />
                 <div className="flex gap-1">
+                  <button
+                    onClick={() => setSelectedDate('all')}
+                    className={`
+                      whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2
+                      ${selectedDate === 'all' 
+                        ? 'bg-blue-600 border-blue-500 text-white' 
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:text-zinc-300'}
+                    `}
+                  >
+                    All History
+                    <span className={`
+                      px-1.5 py-0.5 rounded-full text-[10px] 
+                      ${selectedDate === 'all' ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-zinc-400'}
+                    `}>
+                      {currentNames.length}
+                    </span>
+                  </button>
                   {availableDates.map(date => {
                     const isToday = date === new Date().toISOString().split('T')[0];
                     const count = currentNames.filter(n => n.addedAt === date).length;

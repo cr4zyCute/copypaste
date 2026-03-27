@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Copy, Check, Wand2, Users, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3 } from 'lucide-react';
+import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, ExternalLink } from 'lucide-react';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
 const STORAGE_KEY_STATUSES = 'linkedin_strategist_statuses';
@@ -11,6 +11,7 @@ interface Prospect {
   id: string;
   name: string;
   addedAt: string; // ISO date string (YYYY-MM-DD)
+  link?: string; // Optional LinkedIn URL
 }
 
 export const DocxPromptReader: React.FC = () => {
@@ -19,11 +20,12 @@ export const DocxPromptReader: React.FC = () => {
   });
   const [copied, setCopied] = useState(false);
   const [namesCopied, setNamesCopied] = useState(false);
+  const [linkCopiedId, setLinkCopiedId] = useState<string | null>(null);
   const [mode, setMode] = useState<'Reply' | 'Follow-up' | 'Close' | 'Not-Interested'>('Reply');
   const [promptTemplate, setPromptTemplate] = useState<'Main' | 'Lengthy' | 'Ultra-Short' | 'Follow-up-Specific' | 'Close'>('Main');
   const [notInterestedType, setNotInterestedType] = useState<'no-engagement' | 'with-conversation'>('no-engagement');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'none' | 'follow-up' | 'not-interested'>('none');
   
   // Modal states
@@ -34,6 +36,7 @@ export const DocxPromptReader: React.FC = () => {
   // Edit name state
   const [editingProspectId, setEditingProspectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [editingLink, setEditingLink] = useState('');
   
   // Dynamic variables with localStorage persistence
   const [sender, setSender] = useState(() => localStorage.getItem('linkedin_sender') || 'Kathlynn Mae');
@@ -49,6 +52,10 @@ export const DocxPromptReader: React.FC = () => {
   const [lastConversationDate, setLastConversationDate] = useState('');
   const [prospectWebsite, setProspectWebsite] = useState('');
   const [prospectLinkedIn, setProspectLinkedIn] = useState('');
+  const [pastedLinks, setPastedLinks] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem('linkedin_pasted_links');
+    return saved ? JSON.parse(saved) : {};
+  });
   
   const [prospectStatuses, setProspectStatuses] = useState<Record<string, 'none' | 'not-interested' | number>>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_STATUSES);
@@ -74,20 +81,21 @@ export const DocxPromptReader: React.FC = () => {
       if (Array.isArray(parsed)) {
         return parsed
           .map((item: any) => {
+            const today = new Date().toISOString().split('T')[0];
             if (typeof item === 'string') {
               return {
                 id: Math.random().toString(36).substring(2, 9),
                 name: item,
-                addedAt: new Date().toISOString().split('T')[0]
+                addedAt: today,
+                link: ''
               };
             }
-            if (!item.id) {
-              return {
-                ...item,
-                id: Math.random().toString(36).substring(2, 9)
-              };
-            }
-            return item;
+            return {
+              ...item,
+              id: item.id || Math.random().toString(36).substring(2, 9),
+              addedAt: item.addedAt || today,
+              link: item.link || ''
+            };
           })
           // Filter out invalid names (too short, less than 3 characters)
           .filter((item: Prospect) => item.name && item.name.trim().length >= 3);
@@ -132,14 +140,25 @@ export const DocxPromptReader: React.FC = () => {
     localStorage.setItem('linkedin_uvp', uvp);
   }, [uvp]);
 
+  useEffect(() => {
+    localStorage.setItem('linkedin_pasted_links', JSON.stringify(pastedLinks));
+  }, [pastedLinks]);
+
   // Extract and accumulate prospects from inputMessage
   useEffect(() => {
     if (!inputMessage.trim()) return;
     
     const lines = inputMessage.split('\n');
-    const newNames = new Set<string>();
+    const newProspectsData = new Map<string, { name: string; link: string }>();
     let headerNameFound = false;
-    let prospectNameFromGreeting = ''; // For backward compatibility
+    let prospectNameFromGreeting = ''; 
+    let currentFoundLink = '';
+
+    // First, find any LinkedIn URL in the entire input
+    const urlMatch = inputMessage.match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+\/?/);
+    if (urlMatch) {
+      currentFoundLink = urlMatch[0];
+    }
     
     lines.forEach((line, index) => {
       const trimmed = line.trim();
@@ -253,6 +272,7 @@ export const DocxPromptReader: React.FC = () => {
       if (name) {
         // Clean up name from LinkedIn noise
         name = name
+          .replace(/https?:\/\/\S+/g, '') // Remove URLs
           .replace(/\d+(?:st|nd|rd|th)\s+degree\s+connection/gi, '')
           .replace(/·\s*\d+(?:st|nd|rd|th)/g, '')
           .replace(/\s+/g, ' ')
@@ -271,73 +291,92 @@ export const DocxPromptReader: React.FC = () => {
             !lower.includes('message') &&
             !lower.includes('profile')) {
           // Check if it's already in storedProspects - but only block if it's the EXACT same name
-          // If the new name is "Clark Gable" and we have "Clark", we WANT to include it so it can be updated
           const alreadyExistsExactly = storedProspects.some(p => p.name === name);
           
-          // Removed deletion check - allow re-adding deleted names when pasted again
           if (!alreadyExistsExactly) {
-            newNames.add(name);
-          }
-        }
-      }
-    });
+            // Check if we have a link for this name from the paste handler
+             let linkToUse = currentFoundLink;
+             if (pastedLinks[name]) {
+               linkToUse = pastedLinks[name];
+             } else {
+               // Try to find a partial match
+               const linkKey = Object.keys(pastedLinks).find(key => {
+                 const keyLower = key.toLowerCase();
+                 const nameLower = name.toLowerCase();
+                 return keyLower.includes(nameLower) || nameLower.includes(keyLower);
+               });
+               if (linkKey) {
+                 linkToUse = pastedLinks[linkKey];
+               }
+             }
+             
+             // One last fallback: If we still don't have a link, but there's EXACTLY one LinkedIn URL in the entire HTML paste,
+             // and this is the first prospect found, assume it's for them.
+             if (!linkToUse && Object.keys(pastedLinks).length === 1 && !headerNameFound) {
+               linkToUse = Object.values(pastedLinks)[0];
+             }
+             
+             newProspectsData.set(name, { name, link: linkToUse });
+           }
+         }
+       }
+     });
 
-    // Fallback: If no header name was found but greeting extraction found a name, use that
-    // Note: The greeting pattern now extracts the full name directly, so this fallback
-    // handles edge cases where greeting extraction didn't work in the first pass
-    if (newNames.size === 0) {
-      // Try one more time - look for "Hi FirstName LastName" pattern anywhere in the message
-      // More relaxed to capture names with initials, suffixes, multiple words, and special characters
-      const fullMessage = inputMessage;
-      const hiNameMatch = fullMessage.match(/(?:^|\n)\s*(?:Hi|Hello|Hey)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]*(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ.]*)+)/i);
-      if (hiNameMatch) {
-        let prospectName = hiNameMatch[1].trim();
-        // Remove trailing comma and anything after it
-        prospectName = prospectName.replace(/,.*$/, '').trim();
-        const lower = prospectName.toLowerCase();
-        // Exclude sender names and ensure minimum length
-        if (prospectName.length >= 3 &&
-            !lower.includes('lorelie') &&
-            !lower.includes('juntilla') &&
-            !lower.includes(sender.toLowerCase()) &&
-            prospectName.split(/\s+/).length >= 2) { // Require at least 2 words for full name
-          newNames.add(prospectName);
-        }
-      }
-    }
+     // Fallback: If no header name was found but greeting extraction found a name, use that
+     if (newProspectsData.size === 0) {
+       const fullMessage = inputMessage;
+       const hiNameMatch = fullMessage.match(/(?:^|\n)\s*(?:Hi|Hello|Hey)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ]*(?:\s+[A-ZÀ-ÿ][A-Za-zÀ-ÿ.]+)+)/i);
+       if (hiNameMatch) {
+         let prospectName = hiNameMatch[1].trim();
+         prospectName = prospectName.replace(/,.*$/, '').trim();
+         const lower = prospectName.toLowerCase();
+         if (prospectName.length >= 3 &&
+             !lower.includes('lorelie') &&
+             !lower.includes('juntilla') &&
+             !lower.includes(sender.toLowerCase()) &&
+             prospectName.split(/\s+/).length >= 2) { 
+           
+           let linkToUse = currentFoundLink;
+           if (pastedLinks[prospectName]) {
+             linkToUse = pastedLinks[prospectName];
+           } else {
+             const linkKey = Object.keys(pastedLinks).find(key => {
+               const keyLower = key.toLowerCase();
+               const nameLower = prospectName.toLowerCase();
+               return keyLower.includes(nameLower) || nameLower.includes(keyLower);
+             });
+             if (linkKey) {
+               linkToUse = pastedLinks[linkKey];
+             }
+           }
 
-    if (newNames.size > 0) {
-      const namesArray = Array.from(newNames);
+           // One last fallback for single link in paste
+           if (!linkToUse && Object.keys(pastedLinks).length === 1) {
+             linkToUse = Object.values(pastedLinks)[0];
+           }
+           
+           newProspectsData.set(prospectName, { name: prospectName, link: linkToUse });
+         }
+       }
+     }
+
+    if (newProspectsData.size > 0) {
+      const prospectsArray = Array.from(newProspectsData.values());
       const today = new Date().toISOString().split('T')[0];
 
-      // Filter out names from namesArray if a longer version of the same name is present in the same batch
-      // This handles cases like "Jos" vs "JOSÉ DE JESÚS RIOS CASIQUE" and "Jaime J" vs "Jaime J. Casanova Sánchez"
-      const filteredNamesArray = namesArray.filter(name => {
-        const nameLower = name.toLowerCase();
-        // Normalize accented characters for comparison
+      // Filter out names if a longer version of the same name is present
+      const filteredProspectsArray = prospectsArray.filter(p => {
+        const nameLower = p.name.toLowerCase();
         const nameNormalized = nameLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        // Remove periods for comparison (handles "Jaime J." vs "Jaime J. Casanova")
         const nameClean = nameNormalized.replace(/\./g, '');
         
-        return !namesArray.some(other => {
-          if (other === name) return false;
-          
-          const otherLower = other.toLowerCase();
+        return !prospectsArray.some(other => {
+          if (other.name === p.name) return false;
+          const otherLower = other.name.toLowerCase();
           const otherNormalized = otherLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
           const otherClean = otherNormalized.replace(/\./g, '');
-          
-          // Check if the longer name starts with the shorter name (with or without accents/periods)
-          // Example 1: "Jos" should be filtered out if "José De Jesús" exists
-          // Example 2: "Jaime J" should be filtered out if "Jaime J. Casanova Sánchez" exists
-          if (otherClean.startsWith(nameClean + ' ') || otherClean.startsWith(nameClean + '.')) {
-            return true;
-          }
-          
-          // Also check if names match but one is just shorter
-          if (otherClean.startsWith(nameClean) && otherClean.length > nameClean.length + 2) {
-            return true;
-          }
-          
+          if (otherClean.startsWith(nameClean + ' ') || otherClean.startsWith(nameClean + '.')) return true;
+          if (otherClean.startsWith(nameClean) && otherClean.length > nameClean.length + 2) return true;
           return false;
         });
       });
@@ -347,43 +386,50 @@ export const DocxPromptReader: React.FC = () => {
         let nextStatuses = { ...prospectStatuses };
         let changed = false;
 
-        filteredNamesArray.forEach(name => {
+        filteredProspectsArray.forEach(p => {
+          const name = p.name;
           const lowerName = name.toLowerCase();
-          const existingIdx = next.findIndex(p => {
-            const pLower = p.name.toLowerCase();
+          const existingIdx = next.findIndex(ep => {
+            const pLower = ep.name.toLowerCase();
             return pLower === lowerName || pLower.startsWith(lowerName + ' ') || lowerName.startsWith(pLower + ' ');
           });
 
           if (existingIdx === -1) {
-            // New prospect
             next.push({ 
               id: Math.random().toString(36).substring(2, 9),
               name, 
-              addedAt: today 
+              addedAt: today,
+              link: p.link
             });
-            nextStatuses[name] = 1; // Default to Follow-up #1
+            nextStatuses[name] = 1; 
             changed = true;
           } else {
-            // Existing prospect - check for name upgrade
             const existingName = next[existingIdx].name;
+            let updated = false;
+            
+            // Name upgrade
             if (name.length > existingName.length) {
-              // Upgrade to full name
               next[existingIdx] = { ...next[existingIdx], name };
-              
-              // Migrate status to the new full name key
               if (nextStatuses[existingName] !== undefined) {
                 nextStatuses[name] = nextStatuses[existingName];
                 delete nextStatuses[existingName];
               } else {
-                nextStatuses[name] = 1; // Fallback default
+                nextStatuses[name] = 1;
               }
+              updated = true;
+            }
+            
+            // Link update (if not present)
+            if (p.link && !next[existingIdx].link) {
+              next[existingIdx] = { ...next[existingIdx], link: p.link };
+              updated = true;
+            }
+
+            if (updated) changed = true;
+            
+            if (nextStatuses[next[existingIdx].name] === undefined || nextStatuses[next[existingIdx].name] === 'none') {
+              nextStatuses[next[existingIdx].name] = 1;
               changed = true;
-            } else {
-              // Already have this name or a better version, but ensure it has a status
-              if (nextStatuses[existingName] === undefined || nextStatuses[existingName] === 'none') {
-                nextStatuses[existingName] = 1;
-                changed = true;
-              }
             }
           }
         });
@@ -395,7 +441,64 @@ export const DocxPromptReader: React.FC = () => {
         return prev;
       });
     }
-  }, [inputMessage, deletedProspects, storedProspects]);
+  }, [inputMessage, deletedProspects, storedProspects, pastedLinks]);
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+     const html = e.clipboardData.getData('text/html');
+     if (html) {
+       const parser = new DOMParser();
+       const doc = parser.parseFromString(html, 'text/html');
+       const links = doc.querySelectorAll('a');
+       const newPastedLinks: Record<string, string> = {};
+       
+       links.forEach(link => {
+         let href = link.getAttribute('href') || '';
+         const text = link.textContent?.trim();
+         
+         // Clean the URL - remove tracking parameters and fix common LinkedIn patterns
+         if (href) {
+           // Pattern 1: Standard profile URL
+           // e.g. https://www.linkedin.com/in/afzal-mohammad-12345/
+           const profileMatch = href.match(/(https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+)/);
+           if (profileMatch) {
+             href = profileMatch[1] + '/';
+           }
+           
+           // Pattern 2: Profile view with ID
+           // e.g. https://www.linkedin.com/profile/view?id=ACoAAB...
+           else if (href.includes('linkedin.com/profile/view')) {
+             // Try to keep it as is, but clean if it has too much junk
+             href = href.split('&')[0]; // Just keep the first part (usually the ID)
+           }
+         }
+
+         if (href && (href.includes('linkedin.com/in/') || href.includes('linkedin.com/profile/view'))) {
+           // Store by the visible link text
+           if (text && text.length > 2) {
+             newPastedLinks[text] = href;
+           }
+           
+           // Also try to extract a name from the URL itself as a fallback
+           // e.g. from /in/afzal-mohammad-123/ we can extract "Afzal Mohammad"
+           const urlNameMatch = href.match(/\/in\/([a-zA-Z0-9-]+)/);
+           if (urlNameMatch) {
+             const urlName = urlNameMatch[1]
+               .split('-')
+               .filter(s => isNaN(Number(s))) // Remove the numeric ID part at the end
+               .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+               .join(' ');
+             if (urlName && urlName.length > 2) {
+               newPastedLinks[urlName] = href;
+             }
+           }
+         }
+       });
+       
+       if (Object.keys(newPastedLinks).length > 0) {
+         setPastedLinks(prev => ({ ...prev, ...newPastedLinks }));
+       }
+     }
+   };
 
   const toggleStatus = (name: string, status: 'not-interested' | 'follow-up') => {
     setProspectStatuses(prev => {
@@ -435,37 +538,52 @@ export const DocxPromptReader: React.FC = () => {
   const handleEditProspect = (prospect: Prospect) => {
     setEditingProspectId(prospect.id);
     setEditingName(prospect.name);
+    setEditingLink(prospect.link || '');
   };
 
   const handleSaveEdit = (prospectId: string, oldName: string) => {
-    if (!editingName.trim() || editingName === oldName) {
-      setEditingProspectId(null);
-      setEditingName('');
+    if (!editingName.trim()) {
+      handleCancelEdit();
       return;
     }
 
-    // Update the prospect name
+    // Update the prospect name and link
     setStoredProspects(prev => 
-      prev.map(p => p.id === prospectId ? { ...p, name: editingName.trim() } : p)
+      prev.map(p => p.id === prospectId ? { ...p, name: editingName.trim(), link: editingLink.trim() } : p)
     );
 
-    // Migrate the status from old name to new name
-    setProspectStatuses(prev => {
-      const newStatuses = { ...prev };
-      if (newStatuses[oldName] !== undefined) {
-        newStatuses[editingName.trim()] = newStatuses[oldName];
-        delete newStatuses[oldName];
-      }
-      return newStatuses;
-    });
+    // Migrate the status from old name to new name if name changed
+    if (editingName.trim() !== oldName) {
+      setProspectStatuses(prev => {
+        const newStatuses = { ...prev };
+        if (newStatuses[oldName] !== undefined) {
+          newStatuses[editingName.trim()] = newStatuses[oldName];
+          delete newStatuses[oldName];
+        }
+        return newStatuses;
+      });
+    }
 
     setEditingProspectId(null);
     setEditingName('');
+    setEditingLink('');
   };
 
   const handleCancelEdit = () => {
     setEditingProspectId(null);
     setEditingName('');
+    setEditingLink('');
+  };
+
+  const handleCopyLink = async (prospectId: string, link: string) => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkCopiedId(prospectId);
+      setTimeout(() => setLinkCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
   };
 
   const handleCopyNames = async () => {
@@ -502,6 +620,7 @@ export const DocxPromptReader: React.FC = () => {
     setProspectStatuses({});
     setDeletedProspects([]);
     setStoredProspects([]);
+    setPastedLinks({});
     localStorage.removeItem(STORAGE_KEY_INPUT);
     localStorage.removeItem(STORAGE_KEY_STATUSES);
     localStorage.removeItem(STORAGE_KEY_DELETED);
@@ -511,7 +630,9 @@ export const DocxPromptReader: React.FC = () => {
   const filteredProspects = React.useMemo(() => {
     return storedProspects.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesDate = p.addedAt === selectedDate;
+      
+      // Show ALL if 'all' is selected, otherwise match date
+      const matchesDate = selectedDate === 'all' || p.addedAt === selectedDate;
 
       let matchesStatus = true;
       if (statusFilter === 'follow-up') {
@@ -1021,6 +1142,7 @@ ${sender}`;
           <textarea
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
+            onPaste={handlePaste}
             placeholder="Paste LinkedIn messages or conversation history..."
             className="flex-1 min-h-0 w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none mb-6 custom-scrollbar"
           />
@@ -1082,6 +1204,23 @@ ${sender}`;
             <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
               <Calendar className="w-4 h-4 text-zinc-500 shrink-0" />
               <div className="flex gap-1">
+                <button
+                  onClick={() => setSelectedDate('all')}
+                  className={`
+                    whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2
+                    ${selectedDate === 'all' 
+                      ? 'bg-purple-600 border-purple-500 text-white' 
+                      : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:text-zinc-300'}
+                  `}
+                >
+                  All History
+                  <span className={`
+                    px-1.5 py-0.5 rounded-full text-[10px] 
+                    ${selectedDate === 'all' ? 'bg-purple-500 text-white' : 'bg-zinc-800 text-zinc-400'}
+                  `}>
+                    {storedProspects.length}
+                  </span>
+                </button>
                 {availableDates.map(date => {
                   const isToday = date === new Date().toISOString().split('T')[0];
                   const count = storedProspects.filter(p => p.addedAt === date).length;
@@ -1192,35 +1331,41 @@ ${sender}`;
                         </div>
                         <div className="flex-1 min-w-0">
                           {editingProspectId === p.id ? (
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={editingName}
-                                onChange={(e) => setEditingName(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleSaveEdit(p.id, name);
-                                  } else if (e.key === 'Escape') {
-                                    handleCancelEdit();
-                                  }
-                                }}
-                                autoFocus
-                                className="flex-1 bg-zinc-900 border border-blue-500/50 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              />
-                              <button
-                                onClick={() => handleSaveEdit(p.id, name)}
-                                className="p-1 text-green-400 hover:text-green-300"
-                                title="Save"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={handleCancelEdit}
-                                className="p-1 text-red-400 hover:text-red-300"
-                                title="Cancel"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
+                            <div className="flex flex-col gap-2 w-full pr-2">
+                              <div className="flex items-center gap-2">
+                                <User className="w-3.5 h-3.5 text-zinc-500" />
+                                <input
+                                  type="text"
+                                  value={editingName}
+                                  onChange={(e) => setEditingName(e.target.value)}
+                                  placeholder="Full Name"
+                                  className="flex-1 bg-zinc-900 border border-blue-500/50 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <LinkIcon className="w-3.5 h-3.5 text-zinc-500" />
+                                <input
+                                  type="text"
+                                  value={editingLink}
+                                  onChange={(e) => setEditingLink(e.target.value)}
+                                  placeholder="LinkedIn URL (Optional)"
+                                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div className="flex justify-end gap-2 mt-1">
+                                <button
+                                  onClick={() => handleSaveEdit(p.id, name)}
+                                  className="flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded text-[10px] font-bold uppercase transition-all"
+                                >
+                                  <Check className="w-3 h-3" /> Save
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  className="flex items-center gap-1 px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded text-[10px] font-bold uppercase transition-all"
+                                >
+                                  <X className="w-3 h-3" /> Cancel
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <>
@@ -1241,6 +1386,22 @@ ${sender}`;
                       
                       {editingProspectId !== p.id && (
                         <div className="flex items-center gap-1">
+                          {p.link && (
+                            <>
+                              <button
+                                onClick={() => handleCopyLink(p.id, p.link!)}
+                                className={`
+                                  p-1.5 rounded-md transition-all
+                                  ${linkCopiedId === p.id
+                                    ? 'bg-green-500/20 text-green-400'
+                                    : 'text-zinc-600 hover:text-blue-400 hover:bg-blue-500/10'}
+                                `}
+                                title="Copy LinkedIn Profile"
+                              >
+                                {linkCopiedId === p.id ? <Check className="w-3.5 h-3.5" /> : <LinkIcon className="w-3.5 h-3.5" />}
+                              </button>
+                            </>
+                          )}
                           <button
                             onClick={() => toggleStatus(name, 'not-interested')}
                             className={`

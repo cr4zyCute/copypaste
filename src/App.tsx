@@ -22,9 +22,22 @@ const getStorageKey = (baseKey: string, authenticated: boolean) => {
 
 const loadNamesFromStorage = (key: string): NameEntry[] => {
   const saved = localStorage.getItem(key);
-  if (!saved) return [];
+  if (!saved) {
+    // FALLBACK: If current key has no data, check the other key (e.g., if we're in guest mode, check for user mode data)
+    // This handles accidental switches in login state
+    const alternativeKey = key.startsWith('guest_') ? key.replace('guest_', '') : `guest_${key}`;
+    const fallbackSaved = localStorage.getItem(alternativeKey);
+    if (fallbackSaved) {
+      try {
+        const parsed = JSON.parse(fallbackSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return [];
+  }
   try {
     const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
     return parsed.map((entry: any) => ({
       ...entry,
       addedAt: entry.addedAt || (entry.timestamp ? new Date(entry.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
@@ -149,16 +162,20 @@ function App() {
     return hasNewFollowUps || hasNewDueFollowUps;
   }, [activeFollowUps.length, dueFollowUpsCount, lastDismissedCount, lastDismissedDueCount]);
 
-  // Persist names when they change
+  // Persist names when they change - ONLY if we have names to save
   useEffect(() => {
-    if (names.length > 0 || localStorage.getItem(getStorageKey(SIMPLE_LIST_STORAGE_KEY, isAuthenticated))) {
-      localStorage.setItem(getStorageKey(SIMPLE_LIST_STORAGE_KEY, isAuthenticated), JSON.stringify(names));
+    const key = getStorageKey(SIMPLE_LIST_STORAGE_KEY, isAuthenticated);
+    // Only save if the names array is NOT empty, OR if we explicitly want to clear it
+    // This prevents accidental overwriting with [] on initialization
+    if (names.length > 0) {
+      localStorage.setItem(key, JSON.stringify(names));
     }
   }, [names, isAuthenticated]);
 
   useEffect(() => {
-    if (names2.length > 0 || localStorage.getItem(getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, isAuthenticated))) {
-      localStorage.setItem(getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, isAuthenticated), JSON.stringify(names2));
+    const key = getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, isAuthenticated);
+    if (names2.length > 0) {
+      localStorage.setItem(key, JSON.stringify(names2));
     }
   }, [names2, isAuthenticated]);
 
@@ -194,6 +211,45 @@ function App() {
     };
     return btoa(encodeURIComponent(JSON.stringify(exportData)));
   };
+
+  // AGGRESSIVE EMERGENCY RECOVERY TOOL - Dumps EVERYTHING in localStorage
+  useEffect(() => {
+    console.group('🚨 AGGRESSIVE DATA RECOVERY DUMP 🚨');
+    console.log('Scanning EVERY SINGLE ITEM in local storage, ignoring key names...');
+    
+    let foundItems = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        try {
+          const val = localStorage.getItem(key);
+          if (val && val.length > 50) { // Ignore tiny values
+            console.log(`\n--- POSSIBLE DATA IN KEY: ${key} ---`);
+            try {
+              const parsed = JSON.parse(val);
+              // Check if it looks like an array of our objects (has id, name, etc)
+              if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
+                 console.log(`✅ FOUND ARRAY OF ${parsed.length} ITEMS!`);
+                 console.log(JSON.stringify(parsed, null, 2));
+                 foundItems++;
+              } else if (typeof parsed === 'object') {
+                 console.log(`FOUND OBJECT:`, parsed);
+              } else {
+                 console.log(`RAW STRING:`, val.substring(0, 200) + '...');
+              }
+            } catch (e) {
+              console.log(`RAW STRING:`, val.substring(0, 200) + '...');
+            }
+          }
+        } catch (e) {
+          console.error(`Error reading key ${key}`);
+        }
+      }
+    }
+    
+    console.log(`\nTotal large data keys found: ${foundItems}`);
+    console.groupEnd();
+  }, []);
 
   const handleCopyExportCode = () => {
     const code = generateExportCode();
