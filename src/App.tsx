@@ -48,6 +48,16 @@ const loadNamesFromStorage = (key: string): NameEntry[] => {
   }
 };
 
+const navItems = [
+  { id: 'excel', label: 'Excel Import', icon: FileSpreadsheet },
+  { id: 'cleaner', label: 'Message Cleaner', icon: Sparkles },
+  { id: 'messenger', label: 'Quick Connect', icon: MessageSquare },
+  { id: 'eod', label: 'EOD', icon: ClipboardList },
+  { id: 'prompt', label: 'Copy Prompt', icon: FileText },
+  { id: 'list', label: 'Simple List', icon: ListTodo },
+  { id: 'link-format', label: 'Post Links', icon: LinkIcon },
+] as const;
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem(AUTH_KEY) === 'true';
@@ -417,84 +427,192 @@ function App() {
         key="content"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
+        className="flex min-h-screen"
       >
-        {/* Notification Bell Icon with Dropdown */}
-        <div className="fixed top-6 right-6 z-[110]">
-          <div className="flex items-center gap-3">
-            {isAuthenticated && (
-              <>
+        {/* Sidebar Navigation */}
+        <aside className="w-64 border-r border-zinc-800 bg-zinc-950 flex flex-col fixed inset-y-0 left-0 z-40">
+          <div className="p-6 border-b border-zinc-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                <RefreshCw className="w-6 h-6 text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                  DataFlow
+                </h1>
+                <div className="flex items-center gap-1.5 mt-1">
+                  {isAuthenticated ? (
+                    <span className="text-[10px] font-bold text-green-400 tracking-wider uppercase flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" /> SECURE SESSION
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase flex items-center gap-1">
+                      GUEST MODE
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <nav className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
                 <button
-                  onClick={() => setIsSyncOpen(true)}
-                  className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:text-orange-400 hover:border-orange-500/20 transition-all group shadow-lg"
-                  title="Sync Data Between Browsers"
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`
+                    w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                    ${isActive
+                      ? 'bg-zinc-800/80 text-white shadow-sm ring-1 ring-white/10'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'}
+                  `}
                 >
-                  <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-blue-400' : 'text-zinc-500'}`} />
+                    {item.label}
+                  </div>
+                  {item.id === 'list' && dueFollowUpsCount > 0 && (
+                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] font-bold rounded-full">
+                      {dueFollowUpsCount}
+                    </span>
+                  )}
                 </button>
-                <button
-                  onClick={handleLogout}
-                  className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:text-red-400 hover:border-red-500/20 transition-all group shadow-lg"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
-                </button>
-              </>
-            )}
-            
-            <div className="relative">
+              );
+            })}
+          </nav>
+
+          <div className="p-4 border-t border-zinc-800">
+            <div className="space-y-2">
               <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className={`
-                  relative p-2.5 rounded-xl border transition-all duration-200 group
-                  ${showNotifications 
-                    ? 'bg-zinc-800 border-zinc-700 text-orange-400 shadow-lg shadow-orange-900/10' 
-                    : 'bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'}
-                `}
+                onClick={() => {
+                  const code = generateExportCode();
+                  navigator.clipboard.writeText(code);
+                  setCopySuccess(true);
+                  setTimeout(() => setCopySuccess(false), 2000);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs font-medium transition-all border border-zinc-800 hover:border-zinc-700"
               >
-                <Bell className={`w-5 h-5 transition-transform duration-300 ${activeFollowUps.length > 0 ? 'animate-none group-hover:rotate-12' : ''}`} />
-                
-                {activeFollowUps.length > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 border-2 border-zinc-950">
-                    {activeFollowUps.length}
-                  </span>
-                )}
+                {copySuccess ? <Check className="w-4 h-4 text-green-400" /> : <Download className="w-4 h-4" />}
+                {copySuccess ? 'Copied!' : 'Backup Data'}
               </button>
+              
+              <label className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs font-medium transition-all border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+                <Upload className="w-4 h-4" />
+                Restore Data
+                <input
+                  type="file"
+                  accept=".txt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (e) => {
+                        try {
+                          const content = e.target?.result as string;
+                          const decoded = JSON.parse(decodeURIComponent(atob(content)));
+                          if (decoded.names) setNames(decoded.names);
+                          if (decoded.names2) setNames2(decoded.names2);
+                          alert('Data restored successfully!');
+                        } catch (err) {
+                          alert('Invalid backup file');
+                        }
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </aside>
 
-              <AnimatePresence>
-                {showNotifications && (
-                  <>
-                    {/* Backdrop to close when clicking outside */}
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setShowNotifications(false)}
-                      className="fixed inset-0 z-[-1]"
-                    />
-                    
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-3 w-80 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50 shadow-black/50"
-                    >
-                      <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
-                        <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                          Notifications
-                          {activeFollowUps.length > 0 && (
-                            <span className="bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full text-[10px]">
-                              {activeFollowUps.length}
-                            </span>
-                          )}
-                        </h3>
-                        <button 
-                          onClick={() => setShowNotifications(false)}
-                          className="text-zinc-500 hover:text-zinc-300"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
+        {/* Main Content Area */}
+        <div className="flex-1 ml-64 min-h-screen bg-black relative">
+          {/* Subtle background glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-500/10 blur-[120px] pointer-events-none rounded-full" />
+          
+          {/* Notification Bell Icon with Dropdown */}
+          <div className="fixed top-6 right-6 z-[110]">
+            <div className="flex items-center gap-3">
+              {isAuthenticated && (
+                <>
+                  <button
+                    onClick={() => setIsSyncOpen(true)}
+                    className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:text-orange-400 hover:border-orange-500/20 transition-all group shadow-lg"
+                    title="Sync Data Between Browsers"
+                  >
+                    <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:text-red-400 hover:border-red-500/20 transition-all group shadow-lg"
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
+                  </button>
+                </>
+              )}
+              
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className={`
+                    relative p-2.5 rounded-xl border transition-all duration-200 group
+                    ${showNotifications 
+                      ? 'bg-zinc-800 border-zinc-700 text-orange-400 shadow-lg shadow-orange-900/10' 
+                      : 'bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'}
+                  `}
+                >
+                  <Bell className={`w-5 h-5 transition-transform duration-300 ${activeFollowUps.length > 0 ? 'animate-none group-hover:rotate-12' : ''}`} />
+                  
+                  {activeFollowUps.length > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 border-2 border-zinc-950">
+                      {activeFollowUps.length}
+                    </span>
+                  )}
+                </button>
 
-                      <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
+                <AnimatePresence>
+                  {showNotifications && (
+                    <>
+                      {/* Backdrop to close when clicking outside */}
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowNotifications(false)}
+                        className="fixed inset-0 z-[-1]"
+                      />
+                      
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-3 w-80 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50 shadow-black/50"
+                      >
+                        <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
+                          <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                            Notifications
+                            {activeFollowUps.length > 0 && (
+                              <span className="bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full text-[10px]">
+                                {activeFollowUps.length}
+                              </span>
+                            )}
+                          </h3>
+                          <button 
+                            onClick={() => setShowNotifications(false)}
+                            className="text-zinc-500 hover:text-zinc-300"
+                            aria-label="Close notifications"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
                         {activeFollowUps.length > 0 ? (
                           <div className="divide-y divide-zinc-800/50">
                             {activeFollowUps.map(n => {
@@ -533,20 +651,6 @@ function App() {
                           </div>
                         )}
                       </div>
-
-                      {activeFollowUps.length > 0 && (
-                        <div className="p-3 bg-zinc-900/50 border-t border-zinc-800">
-                          <button
-                            onClick={() => {
-                              setActiveTab('list');
-                              setShowNotifications(false);
-                            }}
-                            className="w-full bg-orange-500 hover:bg-orange-400 text-white text-xs font-bold py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
-                          >
-                            Go to Follow-ups List
-                          </button>
-                        </div>
-                      )}
                     </motion.div>
                   </>
                 )}
@@ -841,6 +945,7 @@ function App() {
           >
             <p>&copy; {new Date().getFullYear()} Excel Import Tool. Local processing only.</p>
           </motion.footer>
+        </div>
         </div>
       </motion.div>
     </div>
