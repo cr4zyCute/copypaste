@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { ExcelUploader } from './components/ExcelUploader';
 import { DataViewer } from './components/DataViewer';
 import { MessageCleaner } from './components/MessageCleaner';
@@ -68,6 +69,7 @@ function App() {
   const [syncCode, setSyncCode] = useState('');
   const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   // Lifted state from SimpleList.tsx
   const [names, setNames] = useState<NameEntry[]>(() => 
@@ -269,6 +271,26 @@ function App() {
     setTimeout(() => setCopySuccess(false), 2000);
   };
 
+  const exportLocalStorageToExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const rows: Array<{ key: string; value: string }> = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        const val = localStorage.getItem(key);
+        rows.push({ key, value: val ?? '' });
+      }
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'localStorage');
+      const ts = new Date().toISOString().replace(/[:\-T]/g, '').slice(0, 15);
+      XLSX.writeFile(wb, `backup_${ts}.xlsx`);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   const handleImportCode = () => {
     try {
       if (!syncCode.trim()) return;
@@ -290,6 +312,36 @@ function App() {
     } catch (e) {
       setImportStatus({ type: 'error', message: 'Invalid sync code. Please try again.' });
       setTimeout(() => setImportStatus(null), 3000);
+    }
+  };
+
+  const handleRestoreExcel = async (file: File) => {
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const sheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws) as Array<Record<string, any>>;
+      let restored = 0;
+      let skipped = 0;
+      let renamed = 0;
+      for (const r of rows) {
+        const key = String(r.key ?? '').trim();
+        const value = String(r.value ?? '');
+        if (!key) continue;
+        if (localStorage.getItem(key) === null) {
+          localStorage.setItem(key, value);
+          restored++;
+        } else {
+          const newKey = `restored_${key}`;
+          localStorage.setItem(newKey, value);
+          renamed++;
+        }
+      }
+      refreshNames();
+      alert(`Restore completed.\nRestored: ${restored}\nRenamed to avoid overwrite: ${renamed}\nSkipped: ${skipped}`);
+    } catch {
+      alert('Invalid Excel backup file');
     }
   };
 
@@ -500,32 +552,36 @@ function App() {
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs font-medium transition-all border border-zinc-800 hover:border-zinc-700"
               >
                 {copySuccess ? <Check className="w-4 h-4 text-green-400" /> : <Download className="w-4 h-4" />}
-                {copySuccess ? 'Copied!' : 'Backup Data'}
+                {copySuccess ? 'Copied!' : 'Backup: Code'}
               </button>
-              
+              <button
+                onClick={exportLocalStorageToExcel}
+                disabled={isExportingExcel}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs font-medium transition-all border border-zinc-800 hover:border-zinc-700 disabled:opacity-50"
+                title="Export all local data to Excel"
+              >
+                <Download className="w-4 h-4" />
+                {isExportingExcel ? 'Exporting…' : 'Backup: Excel'}
+              </button>
+              <button
+                onClick={() => setIsSyncOpen(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs font-medium transition-all border border-zinc-800 hover:border-zinc-700"
+              >
+                <Upload className="w-4 h-4" />
+                Restore: Code
+              </button>
               <label className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs font-medium transition-all border border-zinc-800 hover:border-zinc-700 cursor-pointer">
                 <Upload className="w-4 h-4" />
-                Restore Data
+                Restore: Excel
                 <input
                   type="file"
-                  accept=".txt"
+                  accept=".xlsx,.xls"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (e) => {
-                        try {
-                          const content = e.target?.result as string;
-                          const decoded = JSON.parse(decodeURIComponent(atob(content)));
-                          if (decoded.names) setNames(decoded.names);
-                          if (decoded.names2) setNames2(decoded.names2);
-                          alert('Data restored successfully!');
-                        } catch (err) {
-                          alert('Invalid backup file');
-                        }
-                      };
-                      reader.readAsText(file);
+                      handleRestoreExcel(file);
+                      e.currentTarget.value = '';
                     }
                   }}
                 />
@@ -732,7 +788,7 @@ function App() {
         </div>
 
         <div className="container mx-auto px-4 py-12 max-w-6xl">
-          <motion.header 
+          {/* <motion.header 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center mb-10 space-y-4"
@@ -750,7 +806,7 @@ function App() {
             <p className="text-zinc-500 text-xs uppercase tracking-[0.3em] font-bold">
               {isAuthenticated ? 'Secure Workspace • Session Active' : 'Guest Mode • Local Processing'}
             </p>
-          </motion.header>
+          </motion.header> */}
 
           {/* Tab Navigation */}
           {/*
