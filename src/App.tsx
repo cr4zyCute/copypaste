@@ -437,8 +437,12 @@ function App() {
                 <RefreshCw className="w-6 h-6 text-blue-400" />
               </div>
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-                  DataFlow
+                <h1
+                  onDoubleClick={() => setIsLoginOpen(true)}
+                  title="Double click for secure access"
+                  className="text-xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  Tools
                 </h1>
                 <div className="flex items-center gap-1.5 mt-1">
                   {isAuthenticated ? (
@@ -749,6 +753,7 @@ function App() {
           </motion.header>
 
           {/* Tab Navigation */}
+          {/*
           <div className="flex justify-center mb-12">
             <div className="bg-zinc-900/50 p-1 rounded-xl border border-zinc-800 flex gap-1 backdrop-blur-sm">
               <button
@@ -841,6 +846,7 @@ function App() {
               </button>
             </div>
           </div>
+          */}
 
           <main className="space-y-12">
             <AnimatePresence mode="wait">
