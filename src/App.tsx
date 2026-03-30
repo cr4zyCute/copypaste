@@ -10,7 +10,7 @@ import { SimpleList, type NameEntry } from './components/SimpleList';
 import { LinkFormatter } from './components/LinkFormatter';
 import { Login } from './components/Login';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check, Link as LinkIcon } from 'lucide-react';
+import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check, Link as LinkIcon, Settings } from 'lucide-react';
 
 type Row = Record<string, unknown>;
 
