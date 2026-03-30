@@ -955,6 +955,12 @@ ${sender}`;
     setAiMessages([]);
     setAiResponseCopied(false);
 
+    if (!import.meta.env.VITE_GITHUB_TOKEN) {
+      setAiError('Missing API Token (VITE_GITHUB_TOKEN). Please add it to your deployment environment variables.');
+      setAiLoading(false);
+      return;
+    }
+
     const messagesToSend: Message[] = [
       { role: 'system', content: 'You are a helpful LinkedIn conversation strategist assistant. Provide clear, direct, and actionable advice.' },
       { role: 'user', content: promptText }
@@ -1003,6 +1009,12 @@ ${sender}`;
     setAiLoading(true);
     setAiError('');
     setAiResponseCopied(false);
+
+    if (!import.meta.env.VITE_GITHUB_TOKEN) {
+      setAiError('Missing API Token (VITE_GITHUB_TOKEN). Please add it to your deployment environment variables.');
+      setAiLoading(false);
+      return;
+    }
 
     const updatedMessages: Message[] = [
       ...aiMessages,
