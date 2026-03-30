@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, Send, Loader2, AlertTriangle } from 'lucide-react';
+import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, Send, Loader2, AlertTriangle, Archive, FileText, Download } from 'lucide-react';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
 const STORAGE_KEY_STATUSES = 'linkedin_strategist_statuses';
 const STORAGE_KEY_DELETED = 'linkedin_strategist_deleted';
 const STORAGE_KEY_PROSPECTS = 'linkedin_strategist_prospects';
+const STORAGE_KEY_AI_MESSAGES = 'linkedin_strategist_ai_messages';
+const STORAGE_KEY_ARCHIVED_CONVS = 'linkedin_strategist_archived_convs';
 
 interface Prospect {
   id: string;
@@ -17,6 +19,14 @@ interface Prospect {
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
+}
+
+interface ArchivedConversation {
+  id: string;
+  title: string;
+  date: string;
+  content: string;
+  sizeMB: number;
 }
 
 export const DocxPromptReader: React.FC = () => {
@@ -37,6 +47,7 @@ export const DocxPromptReader: React.FC = () => {
   const [showVariablesModal, setShowVariablesModal] = useState(false);
   const [show21DayModal, setShow21DayModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
   
   // Edit name state
   const [editingProspectId, setEditingProspectId] = useState<string | null>(null);
@@ -44,7 +55,14 @@ export const DocxPromptReader: React.FC = () => {
   const [editingLink, setEditingLink] = useState('');
 
   // AI response states
-  const [aiMessages, setAiMessages] = useState<Message[]>([]);
+  const [aiMessages, setAiMessages] = useState<Message[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_AI_MESSAGES);
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [archivedConvs, setArchivedConvs] = useState<ArchivedConversation[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_ARCHIVED_CONVS);
+    return saved ? JSON.parse(saved) : [];
+  });
   const [followUpInput, setFollowUpInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
@@ -150,6 +168,14 @@ export const DocxPromptReader: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_PROSPECTS, JSON.stringify(storedProspects));
   }, [storedProspects]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_AI_MESSAGES, JSON.stringify(aiMessages));
+  }, [aiMessages]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_ARCHIVED_CONVS, JSON.stringify(archivedConvs));
+  }, [archivedConvs]);
 
   // Persist dynamic variables
   useEffect(() => {
@@ -1093,6 +1119,38 @@ ${sender}`;
     }
   };
 
+  const archiveConversation = () => {
+    if (aiMessages.length === 0) return;
+
+    const content = aiMessages
+      .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+      .join('\n\n' + '='.repeat(30) + '\n\n');
+    
+    const newArchive: ArchivedConversation = {
+      id: Math.random().toString(36).substring(2, 9),
+      title: aiMessages.find(m => m.role === 'user')?.content.substring(0, 30) + '...',
+      date: new Date().toLocaleString(),
+      content,
+      sizeMB: conversationSizeMB
+    };
+
+    setArchivedConvs([newArchive, ...archivedConvs]);
+    setAiMessages([]); // Clear current
+    
+    // Create download link
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conversation-archive-${newArchive.id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const deleteArchive = (id: string) => {
+    setArchivedConvs(archivedConvs.filter(c => c.id !== id));
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -1144,6 +1202,18 @@ ${sender}`;
             >
               <BookOpen className="w-4 h-4" />
               21-Day Sequence
+            </button>
+            <button
+              onClick={() => setShowArchiveModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-xs font-medium text-zinc-200 transition-colors relative"
+            >
+              <Archive className="w-4 h-4" />
+              Archives
+              {archivedConvs.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[10px] flex items-center justify-center rounded-full border-2 border-zinc-900">
+                  {archivedConvs.length}
+                </span>
+              )}
             </button>
           </div>
 
@@ -1679,10 +1749,13 @@ ${sender}`;
                         {conversationSizeMB.toFixed(3)} MB
                       </span>
                       {conversationSizeMB >= 1 && (
-                        <span className="text-[10px] text-red-400 font-bold animate-pulse flex items-center gap-1">
+                        <button 
+                          onClick={archiveConversation}
+                          className="text-[10px] text-red-400 font-bold animate-pulse flex items-center gap-1 hover:text-red-300 transition-colors"
+                        >
                           <AlertTriangle className="w-3 h-3" />
-                          Limit Reached: Please Clear!
-                        </span>
+                          Limit Reached: Save as .txt & Clear!
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1775,6 +1848,109 @@ ${sender}`;
                  </div>
                </div>
              </div>
+           </motion.div>
+         )}
+       </AnimatePresence>
+
+       {/* Variables Modal */}
+       <AnimatePresence>
+         {showArchiveModal && (
+           <motion.div
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+             onClick={() => setShowArchiveModal(false)}
+           >
+             <motion.div
+               initial={{ scale: 0.95, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.95, opacity: 0 }}
+               onClick={(e) => e.stopPropagation()}
+               className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl"
+             >
+               <div className="flex items-center justify-between mb-6">
+                 <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <Archive className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium text-zinc-100">Conversation Archives</h3>
+                      <p className="text-xs text-zinc-500">History saved when 1MB limit was reached</p>
+                    </div>
+                 </div>
+                 <button
+                   onClick={() => setShowArchiveModal(false)}
+                   className="p-1.5 text-zinc-500 hover:text-zinc-200 transition-colors"
+                 >
+                   <X className="w-5 h-5" />
+                 </button>
+               </div>
+               
+               <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                 {archivedConvs.length === 0 ? (
+                   <div className="h-40 flex flex-col items-center justify-center text-zinc-600 border-2 border-dashed border-zinc-800 rounded-xl">
+                     <FileText className="w-8 h-8 opacity-20 mb-2" />
+                     <p className="text-sm">No archived conversations yet</p>
+                   </div>
+                 ) : (
+                   archivedConvs.map((archive) => (
+                     <div 
+                       key={archive.id}
+                       className="group bg-zinc-950/50 border border-zinc-800 hover:border-zinc-700 p-4 rounded-xl transition-all"
+                     >
+                       <div className="flex items-start justify-between">
+                         <div className="space-y-1 flex-1">
+                           <h4 className="text-sm font-medium text-zinc-200 line-clamp-1">{archive.title}</h4>
+                           <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+                             <span className="flex items-center gap-1">
+                               <Calendar className="w-3 h-3" />
+                               {archive.date}
+                             </span>
+                             <span className="flex items-center gap-1 font-mono">
+                               {archive.sizeMB.toFixed(3)} MB
+                             </span>
+                           </div>
+                         </div>
+                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <button
+                             onClick={() => {
+                               const blob = new Blob([archive.content], { type: 'text/plain' });
+                               const url = URL.createObjectURL(blob);
+                               const a = document.createElement('a');
+                               a.href = url;
+                               a.download = `conversation-archive-${archive.id}.txt`;
+                               a.click();
+                               URL.revokeObjectURL(url);
+                             }}
+                             className="p-2 text-zinc-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
+                             title="Download .txt"
+                           >
+                             <Download className="w-4 h-4" />
+                           </button>
+                           <button
+                             onClick={() => deleteArchive(archive.id)}
+                             className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                             title="Delete"
+                           >
+                             <Trash2 className="w-4 h-4" />
+                           </button>
+                         </div>
+                       </div>
+                     </div>
+                   ))
+                 )}
+               </div>
+
+               <div className="mt-6 pt-4 border-t border-zinc-800 flex justify-end">
+                  <button
+                    onClick={() => setShowArchiveModal(false)}
+                    className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Close
+                  </button>
+               </div>
+             </motion.div>
            </motion.div>
          )}
        </AnimatePresence>
