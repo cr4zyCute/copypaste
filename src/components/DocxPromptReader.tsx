@@ -6,9 +6,6 @@ const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
 const STORAGE_KEY_STATUSES = 'linkedin_strategist_statuses';
 const STORAGE_KEY_DELETED = 'linkedin_strategist_deleted';
 const STORAGE_KEY_PROSPECTS = 'linkedin_strategist_prospects';
-// Obfuscated default token to bypass security scanners while keeping the app functional out-of-the-box
-const _RT = 'IgNbvRkIQQ6Z4BJNzyJbZvZ5Dge3RykpqKSuYkomo8G27qkeIwmCo8m0Ksf_wqlPFgocOG3V0ATRDUBB11_tap_buhtig';
-const DEFAULT_TOKEN = _RT.split('').reverse().join('');
 
 interface Prospect {
   id: string;
@@ -69,7 +66,7 @@ export const DocxPromptReader: React.FC = () => {
     localStorage.getItem('custom_github_token') || 
     import.meta.env.VITE_AZURE_AI_TOKEN || 
     import.meta.env.VITE_GITHUB_TOKEN || 
-    DEFAULT_TOKEN
+    ''
   );
   const [lastConversationDate, setLastConversationDate] = useState('');
   const [prospectWebsite, setProspectWebsite] = useState('');
@@ -1803,27 +1800,25 @@ ${sender}`;
                      />
                      <div className="mt-1 flex justify-between items-center">
                         <p className="text-[10px] text-zinc-500">
-                          {import.meta.env.VITE_AZURE_AI_TOKEN || import.meta.env.VITE_GITHUB_TOKEN
-                            ? '✅ Loaded from environment variables' 
-                            : apiToken === DEFAULT_TOKEN 
-                              ? 'ℹ️ Using default project token' 
-                              : apiToken 
-                                ? '✅ Custom key saved' 
-                                : '⚠️ Key required for AI features'}
-                        </p>
-                        <div className="flex gap-2">
-                          {apiToken !== DEFAULT_TOKEN && (
-                            <button
-                              onClick={() => {
-                                setApiToken(DEFAULT_TOKEN);
-                                localStorage.removeItem('custom_api_token');
-                                localStorage.removeItem('custom_github_token');
-                              }}
-                              className="text-[10px] text-red-400 hover:underline"
-                            >
-                              Reset to Default
-                            </button>
-                          )}
+                           {import.meta.env.VITE_AZURE_AI_TOKEN || import.meta.env.VITE_GITHUB_TOKEN
+                             ? '✅ Loaded from environment variables' 
+                             : apiToken 
+                               ? '✅ Custom key saved' 
+                               : '⚠️ Key required for AI features'}
+                         </p>
+                         <div className="flex gap-2">
+                           {apiToken && !import.meta.env.VITE_AZURE_AI_TOKEN && !import.meta.env.VITE_GITHUB_TOKEN && (
+                             <button
+                               onClick={() => {
+                                 setApiToken('');
+                                 localStorage.removeItem('custom_api_token');
+                                 localStorage.removeItem('custom_github_token');
+                               }}
+                               className="text-[10px] text-red-400 hover:underline"
+                             >
+                               Clear Token
+                             </button>
+                           )}
                           <a 
                             href="https://github.com/settings/tokens?type=beta" 
                             target="_blank" 
