@@ -61,6 +61,7 @@ export const DocxPromptReader: React.FC = () => {
   const [uvp, setUvp] = useState(() =>
     localStorage.getItem('linkedin_uvp') || 'Reduced job scheduling delays by 30% and improved response times by offloading admin, scheduling, invoicing, and dispatch'
   );
+  const [githubToken, setGithubToken] = useState(() => localStorage.getItem('custom_github_token') || '');
   const [lastConversationDate, setLastConversationDate] = useState('');
   const [prospectWebsite, setProspectWebsite] = useState('');
   const [prospectLinkedIn, setProspectLinkedIn] = useState('');
@@ -147,6 +148,10 @@ export const DocxPromptReader: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('linkedin_icp', icp);
   }, [icp]);
+
+  useEffect(() => {
+    localStorage.setItem('custom_github_token', githubToken);
+  }, [githubToken]);
 
   useEffect(() => {
     localStorage.setItem('linkedin_uvp', uvp);
@@ -955,8 +960,9 @@ ${sender}`;
     setAiMessages([]);
     setAiResponseCopied(false);
 
-    if (!import.meta.env.VITE_GITHUB_TOKEN) {
-      setAiError('Missing API Token (VITE_GITHUB_TOKEN). Please add it to your deployment environment variables.');
+    const activeToken = import.meta.env.VITE_GITHUB_TOKEN || githubToken;
+    if (!activeToken) {
+      setAiError('Missing API Token. Please add VITE_GITHUB_TOKEN to your environment variables or set it in the "Prompt Variables" settings (Gear icon).');
       setAiLoading(false);
       return;
     }
@@ -971,7 +977,7 @@ ${sender}`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`,
+          'Authorization': `Bearer ${activeToken}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o',
@@ -1010,8 +1016,9 @@ ${sender}`;
     setAiError('');
     setAiResponseCopied(false);
 
-    if (!import.meta.env.VITE_GITHUB_TOKEN) {
-      setAiError('Missing API Token (VITE_GITHUB_TOKEN). Please add it to your deployment environment variables.');
+    const activeToken = import.meta.env.VITE_GITHUB_TOKEN || githubToken;
+    if (!activeToken) {
+      setAiError('Missing API Token. Please set it in the "Prompt Variables" settings (Gear icon).');
       setAiLoading(false);
       return;
     }
@@ -1027,7 +1034,7 @@ ${sender}`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`,
+          'Authorization': `Bearer ${activeToken}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o',
@@ -1775,6 +1782,33 @@ ${sender}`;
                </div>
                
                <div className="space-y-4">
+                 <div>
+                   <label className="text-xs text-zinc-400 uppercase tracking-wide mb-1 block">GitHub Models API Token (Required for AI)</label>
+                   <div className="relative">
+                     <input
+                       type="password"
+                       value={githubToken}
+                       onChange={(e) => setGithubToken(e.target.value)}
+                       placeholder="github_pat_..."
+                       className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                     />
+                     <div className="mt-1 flex justify-between items-center">
+                       <p className="text-[10px] text-zinc-500">
+                         {import.meta.env.VITE_GITHUB_TOKEN 
+                           ? '✅ Loaded from environment variables' 
+                           : '⚠️ Not found in environment. Please paste your token here.'}
+                       </p>
+                       <a 
+                         href="https://github.com/settings/tokens?type=beta" 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-[10px] text-blue-400 hover:underline"
+                       >
+                         Get Token →
+                       </a>
+                     </div>
+                   </div>
+                 </div>
                  <div>
                    <label className="text-xs text-zinc-400 uppercase tracking-wide mb-1 block">Sender Name</label>
                    <input
