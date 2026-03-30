@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, Send, Loader2, AlertTriangle } from 'lucide-react';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
 const STORAGE_KEY_STATUSES = 'linkedin_strategist_statuses';
@@ -71,6 +71,13 @@ export const DocxPromptReader: React.FC = () => {
   const [tokenInput, setTokenInput] = useState('');
   const [isEditingToken, setIsEditingToken] = useState(false);
   const [lastConversationDate, setLastConversationDate] = useState('');
+
+  // Calculate conversation size in MB
+  const conversationSizeMB = useMemo(() => {
+    const totalChars = aiMessages.reduce((acc, msg) => acc + msg.content.length, 0);
+    // Rough estimate: 1 char = 1 byte, so size in MB is chars / (1024 * 1024)
+    return totalChars / (1024 * 1024);
+  }, [aiMessages]);
   const [prospectWebsite, setProspectWebsite] = useState('');
   const [prospectLinkedIn, setProspectLinkedIn] = useState('');
   const [pastedLinks, setPastedLinks] = useState<Record<string, string>>(() => {
@@ -1665,7 +1672,20 @@ ${sender}`;
              <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden flex flex-col min-h-[200px] max-h-[500px]">
                {/* Chat History Header */}
                <div className="px-5 py-3 border-b border-zinc-800/50 bg-zinc-900/30 flex justify-between items-center">
-                  <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Conversation History</span>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Conversation History</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`text-[10px] font-mono ${conversationSizeMB > 0.8 ? 'text-orange-400' : 'text-zinc-500'}`}>
+                        {conversationSizeMB.toFixed(3)} MB
+                      </span>
+                      {conversationSizeMB >= 1 && (
+                        <span className="text-[10px] text-red-400 font-bold animate-pulse flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Limit Reached: Please Clear!
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <span className="text-[10px] text-zinc-500">{aiMessages.filter(m => m.role !== 'system').length} messages</span>
                </div>
                
