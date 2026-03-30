@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon } from 'lucide-react';
+import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, Send, Loader2 } from 'lucide-react';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
 const STORAGE_KEY_STATUSES = 'linkedin_strategist_statuses';
@@ -12,6 +12,11 @@ interface Prospect {
   name: string;
   addedAt: string; // ISO date string (YYYY-MM-DD)
   link?: string; // Optional LinkedIn URL
+}
+
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
 }
 
 export const DocxPromptReader: React.FC = () => {
@@ -37,6 +42,13 @@ export const DocxPromptReader: React.FC = () => {
   const [editingProspectId, setEditingProspectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingLink, setEditingLink] = useState('');
+
+  // AI response states
+  const [aiMessages, setAiMessages] = useState<Message[]>([]);
+  const [followUpInput, setFollowUpInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiResponseCopied, setAiResponseCopied] = useState(false);
   
   // Dynamic variables with localStorage persistence
   const [sender, setSender] = useState(() => localStorage.getItem('linkedin_sender') || 'Kathlynn Mae');
@@ -934,6 +946,119 @@ ${sender}`;
     }
   };
 
+  const handleSendToAI = async () => {
+    if (!inputMessage.trim()) return;
+    const promptText = buildPromptText();
+    
+    setAiLoading(true);
+    setAiError('');
+    setAiMessages([]);
+    setAiResponseCopied(false);
+
+    const messagesToSend: Message[] = [
+      { role: 'system', content: 'You are a helpful LinkedIn conversation strategist assistant. Provide clear, direct, and actionable advice.' },
+      { role: 'user', content: promptText }
+    ];
+
+    try {
+      const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: messagesToSend,
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || 'No response generated.';
+      
+      setAiMessages([
+        ...messagesToSend,
+        { role: 'assistant', content }
+      ]);
+    } catch (err: any) {
+      console.error('AI request failed:', err);
+      setAiError(err.message || 'Failed to get AI response. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleSendFollowUp = async () => {
+    if (!followUpInput.trim() || aiLoading) return;
+    
+    const userMessage = followUpInput.trim();
+    setFollowUpInput(''); // Clear input immediately
+    setAiLoading(true);
+    setAiError('');
+    setAiResponseCopied(false);
+
+    const updatedMessages: Message[] = [
+      ...aiMessages,
+      { role: 'user', content: userMessage }
+    ];
+    setAiMessages(updatedMessages);
+
+    try {
+      const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: updatedMessages,
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || 'No response generated.';
+      
+      setAiMessages([
+        ...updatedMessages,
+        { role: 'assistant', content }
+      ]);
+    } catch (err: any) {
+      console.error('AI follow-up request failed:', err);
+      setAiError(err.message || 'Failed to send follow-up. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleCopyAiResponse = async () => {
+    // Find the last assistant message
+    const lastAssistantMessage = [...aiMessages].reverse().find(m => m.role === 'assistant');
+    if (!lastAssistantMessage) return;
+    
+    try {
+      await navigator.clipboard.writeText(lastAssistantMessage.content);
+      setAiResponseCopied(true);
+      setTimeout(() => setAiResponseCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy AI response:', err);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -1147,21 +1272,36 @@ ${sender}`;
             className="flex-1 min-h-0 w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none mb-6 custom-scrollbar"
           />
 
-          <button
-            onClick={handleCopyPrompt}
-            disabled={!inputMessage.trim()}
-            className={`
-              w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all border shadow-lg shrink-0
-              ${!inputMessage.trim()
-                ? 'bg-zinc-800 border-transparent text-zinc-600 cursor-not-allowed' 
-                : copied 
-                  ? 'bg-green-500/10 text-green-400 border-green-500/30 shadow-green-900/10' 
-                  : 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500/50 shadow-blue-900/20'}
-            `}
-          >
-            {copied ? <Check className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
-            {copied ? 'Prompt Copied!' : 'Copy Framework Prompt'}
-          </button>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={handleCopyPrompt}
+              disabled={!inputMessage.trim()}
+              className={`
+                flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all border shadow-lg
+                ${!inputMessage.trim()
+                  ? 'bg-zinc-800 border-transparent text-zinc-600 cursor-not-allowed' 
+                  : copied 
+                    ? 'bg-green-500/10 text-green-400 border-green-500/30 shadow-green-900/10' 
+                    : 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500/50 shadow-blue-900/20'}
+              `}
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
+              {copied ? 'Copied!' : 'Copy Prompt'}
+            </button>
+            <button
+              onClick={handleSendToAI}
+              disabled={!inputMessage.trim() || aiLoading}
+              className={`
+                flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all border shadow-lg
+                ${!inputMessage.trim() || aiLoading
+                  ? 'bg-zinc-800 border-transparent text-zinc-600 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border-purple-500/50 shadow-purple-900/20'}
+              `}
+            >
+              {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {aiLoading ? 'Sending...' : 'Send to AI'}
+            </button>
+          </div>
         </div>
 
         {/* Right Side: Prospect List */}
@@ -1456,6 +1596,141 @@ ${sender}`;
         </div>
        </div>
        </div>
+
+       {/* AI Response Panel */}
+       <AnimatePresence>
+         {(aiLoading || aiMessages.length > 0 || aiError) && (
+           <motion.div
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             exit={{ opacity: 0, y: 20 }}
+             className="bg-zinc-900/30 border border-zinc-800 rounded-2xl p-6 shadow-sm flex flex-col"
+           >
+             <div className="flex items-center justify-between mb-4 shrink-0">
+               <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                 <h3 className="text-lg font-medium text-zinc-200">AI Collaboration</h3>
+               </div>
+               <div className="flex items-center gap-2">
+                 {aiMessages.filter(m => m.role === 'assistant').length > 0 && (
+                   <button
+                     onClick={handleCopyAiResponse}
+                     className={`
+                       flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border
+                       ${aiResponseCopied
+                         ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                         : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}
+                     `}
+                   >
+                     {aiResponseCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                     {aiResponseCopied ? 'Copied Last!' : 'Copy Last Response'}
+                   </button>
+                 )}
+                 <button
+                   onClick={() => { setAiMessages([]); setAiError(''); }}
+                   className="p-1.5 text-zinc-500 hover:text-zinc-200 transition-colors"
+                 >
+                   <X className="w-4 h-4" />
+                 </button>
+               </div>
+             </div>
+
+             <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden flex flex-col min-h-[200px] max-h-[500px]">
+               {/* Chat History Header */}
+               <div className="px-5 py-3 border-b border-zinc-800/50 bg-zinc-900/30 flex justify-between items-center">
+                  <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Conversation History</span>
+                  <span className="text-[10px] text-zinc-500">{aiMessages.filter(m => m.role !== 'system').length} messages</span>
+               </div>
+               
+               {/* Chat Messages */}
+               <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
+                 {aiMessages.filter(m => m.role !== 'system').map((msg, idx) => (
+                   <div 
+                     key={idx} 
+                     className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+                   >
+                     <span className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1 px-1">
+                       {msg.role === 'user' ? 'You' : 'AI Assistant'}
+                     </span>
+                     <div 
+                       className={`
+                         text-sm whitespace-pre-wrap leading-relaxed px-4 py-3 rounded-2xl
+                         ${msg.role === 'user' 
+                           ? 'bg-blue-600/20 text-blue-100 border border-blue-500/30 rounded-tr-sm' 
+                           : 'bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-sm'}
+                       `}
+                     >
+                       {/* Only truncate the very first user message which is the giant prompt */}
+                       {msg.role === 'user' && idx === 0 ? (
+                         <div className="space-y-2">
+                           <div className="flex items-center gap-2 text-blue-300">
+                             <Wand2 className="w-4 h-4" />
+                             <span className="font-medium">Initial Framework Prompt Sent</span>
+                           </div>
+                           <p className="opacity-70 text-xs italic line-clamp-3">
+                             {msg.content.substring(0, 150)}...
+                           </p>
+                         </div>
+                       ) : (
+                         msg.content
+                       )}
+                     </div>
+                   </div>
+                 ))}
+                 
+                 {aiLoading && (
+                   <div className="mr-auto flex flex-col items-start max-w-[85%]">
+                     <span className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1 px-1">AI Assistant</span>
+                     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl rounded-tl-sm px-4 py-4 flex items-center gap-3">
+                       <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                       <span className="text-sm text-zinc-400 animate-pulse">Generating response...</span>
+                     </div>
+                   </div>
+                 )}
+                 
+                 {aiError && (
+                   <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-sm text-red-400 mt-4">
+                     <p className="font-medium mb-1">Error</p>
+                     <p className="text-red-400/80">{aiError}</p>
+                   </div>
+                 )}
+               </div>
+
+               {/* Interaction Footer - Chat Input */}
+               <div className="p-3 bg-zinc-900/50 border-t border-zinc-800 shrink-0">
+                 <div className="relative flex items-end gap-2">
+                   <textarea
+                     value={followUpInput}
+                     onChange={(e) => setFollowUpInput(e.target.value)}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter' && !e.shiftKey) {
+                         e.preventDefault();
+                         handleSendFollowUp();
+                       }
+                     }}
+                     placeholder="Type follow-up instructions to refine the AI's response (Shift+Enter for newline)..."
+                     className="flex-1 bg-zinc-950 border border-zinc-800 focus:border-purple-500/50 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-purple-500/50 resize-none min-h-[44px] max-h-[120px] custom-scrollbar"
+                     rows={1}
+                     disabled={aiLoading}
+                   />
+                   <button
+                     onClick={handleSendFollowUp}
+                     disabled={!followUpInput.trim() || aiLoading}
+                     className={`
+                       h-[44px] px-4 rounded-xl flex items-center justify-center transition-all shrink-0
+                       ${!followUpInput.trim() || aiLoading
+                         ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                         : 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/20'}
+                     `}
+                   >
+                     <Send className="w-4 h-4" />
+                   </button>
+                 </div>
+               </div>
+             </div>
+           </motion.div>
+         )}
+       </AnimatePresence>
 
        {/* Variables Modal */}
        <AnimatePresence>
