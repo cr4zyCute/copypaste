@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Building2, Bell } from 'lucide-react';
+import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Building2, Bell, ExternalLink } from 'lucide-react';
 
 export interface NameEntry {
   id: string;
   name: string;
   jobPosition?: string;
+  link?: string;
   sent?: boolean;
   connected?: boolean;
   connectedAt?: number;
@@ -26,6 +27,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const [nameInput, setNameInput] = useState('');
   const [jobPositionInput, setJobPositionInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [pastedLink, setPastedLink] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedNameId, setCopiedNameId] = useState<string | null>(null);
   const [copiedCompanyId, setCopiedCompanyId] = useState<string | null>(null);
@@ -42,15 +44,28 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
 
   const handleAddName = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const name = nameInput.trim();
+    let name = nameInput.trim();
     const jobPosition = jobPositionInput.trim() || undefined;
 
     if (!name) return;
+
+    // Use pasted link if available, otherwise check if URL is in the name string
+    let finalLink = pastedLink;
+    if (!finalLink) {
+      const urlMatch = name.match(/(https?:\/\/[^\s]+)/);
+      if (urlMatch) {
+        finalLink = urlMatch[0];
+        name = name.replace(finalLink, '').trim();
+        // Clean up any trailing/leading separators
+        name = name.replace(/^[\s\-–—|]+|[\s\-–—|]+$/g, '').trim();
+      }
+    }
 
     const today = new Date().toISOString().split('T')[0];
     const newEntry: NameEntry = {
       id: Math.random().toString(36).substring(2, 9),
       name,
+      link: finalLink || undefined,
       jobPosition,
       timestamp: Date.now(),
       addedAt: today,
@@ -59,6 +74,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
     setCurrentNames([newEntry, ...currentNames]);
     setNameInput('');
     setJobPositionInput('');
+    setPastedLink(null);
     setSelectedDate(today); // Switch to today when adding
     inputRef.current?.focus();
   };
@@ -310,10 +326,38 @@ Happy to connect.`;
                     ref={inputRef}
                     type="text"
                     value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
+                    onChange={(e) => {
+                      setNameInput(e.target.value);
+                      if (!e.target.value) setPastedLink(null);
+                    }}
+                    onPaste={(e) => {
+                      let htmlLink: string | null = null;
+                      const html = e.clipboardData.getData('text/html');
+                      if (html) {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const anchor = doc.querySelector('a');
+                        if (anchor && anchor.href) {
+                          htmlLink = anchor.href;
+                          setPastedLink(htmlLink);
+                        }
+                      }
+                      const text = e.clipboardData.getData('text/plain');
+                      if (!htmlLink) {
+                        const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
+                        if (urlMatch) {
+                          setPastedLink(urlMatch[0]);
+                        }
+                      }
+                    }}
                     placeholder={activeSubTab === 'list1' ? "Name and Position (e.g., Linkon - VP of Sales)..." : "Name and Position..."}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-10 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                   />
+                  {pastedLink && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" title="Link captured">
+                      <LinkIcon className="w-3.5 h-3.5" />
+                    </div>
+                  )}
                 </div>
                 {activeSubTab === 'list2' && (
                   <div className="relative flex-[2]">
@@ -511,6 +555,17 @@ Happy to connect.`;
                         
                         {activeSubTab === 'reminders' ? (
                           <div className="flex items-center gap-2">
+                            {entry.link && (
+                              <a
+                                href={entry.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 text-zinc-600 hover:text-blue-400 hover:bg-zinc-800 rounded-md transition-all"
+                                title="Open link"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            )}
                             {entry.connectedAt && (
                               <span className={`px-2 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getReminderStatus(entry).color}`}>
                                 {getReminderStatus(entry).text}
@@ -535,6 +590,17 @@ Happy to connect.`;
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            {entry.link && (
+                              <a
+                                href={entry.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 text-zinc-600 hover:text-blue-400 hover:bg-zinc-800 rounded-md transition-all"
+                                title="Open link"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            )}
                             {entry.jobPosition && (
                               <button
                                 onClick={() => handleCopyCompany(entry)}
