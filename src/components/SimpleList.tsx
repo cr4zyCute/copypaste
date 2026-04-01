@@ -28,7 +28,8 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const [jobPositionInput, setJobPositionInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [pastedLink, setPastedLink] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedId1, setCopiedId1] = useState<string | null>(null);
+  const [copiedId2, setCopiedId2] = useState<string | null>(null);
   const [copiedNameId, setCopiedNameId] = useState<string | null>(null);
   const [copiedCompanyId, setCopiedCompanyId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'connected'>('all');
@@ -87,7 +88,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
     }
   };
 
-  const handleCopyMessage = async (entry: NameEntry) => {
+  const handleCopyMessage1 = async (entry: NameEntry) => {
     const firstName = entry.name.split(' ')[0];
     const message = `Hi ${firstName}, I work with service businesses like HVAC, plumbing, and facilities teams to smooth out dispatch chaos and after-hours coverage. Always interested in learning how others handle the labor crunch. 
 
@@ -95,12 +96,29 @@ Happy to connect.`;
     
     try {
       await navigator.clipboard.writeText(message);
-      setCopiedId(entry.id);
+      setCopiedId1(entry.id);
       
       // Persistently mark as sent
       updateEntryGlobal(entry.id, n => ({ ...n, sent: true }));
       
-      setTimeout(() => setCopiedId(null), 2000);
+      setTimeout(() => setCopiedId1(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy message:', err);
+    }
+  };
+
+  const handleCopyMessage2 = async (entry: NameEntry) => {
+    const firstName = entry.name.split(' ')[0];
+    const message = `Hi ${firstName}, I work with ops leaders to smooth out dispatch chaos. Always looking to see how other teams handle the labor crunch. Happy to connect.`;
+    
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopiedId2(entry.id);
+      
+      // Persistently mark as sent
+      updateEntryGlobal(entry.id, n => ({ ...n, sent: true }));
+      
+      setTimeout(() => setCopiedId2(null), 2000);
     } catch (err) {
       console.error('Failed to copy message:', err);
     }
@@ -637,16 +655,41 @@ Happy to connect.`;
                               <LinkIcon className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleCopyMessage(entry)}
-                              className={`p-1.5 rounded-md transition-all ${
-                                copiedId === entry.id 
+                              onClick={() => handleCopyMessage1(entry)}
+                              className={`p-1.5 rounded-md transition-all relative ${
+                                copiedId1 === entry.id 
                                   ? 'bg-green-500/20 text-green-400' 
                                   : 'text-zinc-600 hover:text-blue-400 hover:bg-zinc-800'
                               }`}
-                              title="Copy connect message"
+                              title="Copy connect message 1"
                             >
-                              {copiedId === entry.id ? <Check className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
+                              {copiedId1 === entry.id ? <Check className="w-4 h-4" /> : (
+                                <>
+                                  <MessageCircle className="w-4 h-4" />
+                                  {activeSubTab === 'list2' && (
+                                    <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-blue-500 text-white w-3 h-3 flex items-center justify-center rounded-full">1</span>
+                                  )}
+                                </>
+                              )}
                             </button>
+                            {activeSubTab === 'list2' && (
+                              <button
+                                onClick={() => handleCopyMessage2(entry)}
+                                className={`p-1.5 rounded-md transition-all relative ${
+                                  copiedId2 === entry.id 
+                                    ? 'bg-green-500/20 text-green-400' 
+                                    : 'text-zinc-600 hover:text-blue-400 hover:bg-zinc-800'
+                                }`}
+                                title="Copy connect message 2"
+                              >
+                                {copiedId2 === entry.id ? <Check className="w-4 h-4" /> : (
+                                  <>
+                                    <MessageCircle className="w-4 h-4" />
+                                    <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-purple-500 text-white w-3 h-3 flex items-center justify-center rounded-full">2</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(entry.id)}
                               className="p-1.5 text-zinc-600 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-all"
