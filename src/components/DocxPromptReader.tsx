@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, Send, Loader2, AlertTriangle, Archive, FileText, Download } from 'lucide-react';
 import { supabase } from '../supabase';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
