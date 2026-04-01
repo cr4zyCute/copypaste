@@ -52,15 +52,20 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
 
     // Use pasted link if available, otherwise check if URL is in the name string
     let finalLink = pastedLink;
-    if (!finalLink) {
-      const urlMatch = name.match(/(https?:\/\/[^\s]+)/);
-      if (urlMatch) {
-        finalLink = urlMatch[0];
-        name = name.replace(finalLink, '').trim();
-        // Clean up any trailing/leading separators
-        name = name.replace(/^[\s\-–—|]+|[\s\-–—|]+$/g, '').trim();
+    
+    // Always check for URL in the name string to clean it up
+    const urlMatch = name.match(/((?:https?:\/\/|www\.)[^\s]+)/);
+    if (urlMatch) {
+      if (!finalLink) {
+        let url = urlMatch[0];
+        if (url.startsWith('www.')) url = 'https://' + url;
+        finalLink = url;
       }
+      name = name.replace(urlMatch[0], '').trim();
     }
+    
+    // Clean up any trailing/leading separators
+    name = name.replace(/^[\s\-–—|]+|[\s\-–—|]+$/g, '').trim();
 
     const today = new Date().toISOString().split('T')[0];
     const newEntry: NameEntry = {
@@ -362,9 +367,11 @@ Happy to connect.`;
                       }
                       const text = e.clipboardData.getData('text/plain');
                       if (!htmlLink) {
-                        const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
+                        const urlMatch = text.match(/((?:https?:\/\/|www\.)[^\s]+)/);
                         if (urlMatch) {
-                          setPastedLink(urlMatch[0]);
+                          let url = urlMatch[0];
+                          if (url.startsWith('www.')) url = 'https://' + url;
+                          setPastedLink(url);
                         }
                       }
                     }}
@@ -541,7 +548,18 @@ Happy to connect.`;
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-zinc-200 font-medium block">{entry.name}</span>
+                              {entry.link ? (
+                                <a 
+                                  href={entry.link} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-sm text-zinc-200 font-medium block hover:text-blue-400 transition-colors"
+                                >
+                                  {entry.name}
+                                </a>
+                              ) : (
+                                <span className="text-sm text-zinc-200 font-medium block">{entry.name}</span>
+                              )}
                               {activeSubTab === 'reminders' ? (
                                 <span className="flex items-center gap-1 text-[9px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700 uppercase tracking-tight font-bold">
                                   Pending
