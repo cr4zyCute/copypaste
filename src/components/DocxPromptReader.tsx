@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, Send, Loader2, AlertTriangle, Archive, FileText, Download } from 'lucide-react';
+import { supabase } from '../supabase';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
 const STORAGE_KEY_STATUSES = 'linkedin_strategist_statuses';
@@ -1014,26 +1014,19 @@ ${sender}`;
     ];
 
     try {
-      const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${activeToken}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('call-ai', {
+        body: {
           model: 'gpt-4o',
           messages: messagesToSend,
           temperature: 0.7,
           max_tokens: 2048,
-        }),
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API error: ${response.status}`);
+      if (error) {
+        throw new Error(error.message || 'Function invocation failed');
       }
 
-      const data = await response.json();
       const content = data.choices?.[0]?.message?.content || 'No response generated.';
       
       setAiMessages([
@@ -1071,26 +1064,19 @@ ${sender}`;
     setAiMessages(updatedMessages);
 
     try {
-      const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${activeToken}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('call-ai', {
+        body: {
           model: 'gpt-4o',
           messages: updatedMessages,
           temperature: 0.7,
           max_tokens: 2048,
-        }),
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API error: ${response.status}`);
+      if (error) {
+        throw new Error(error.message || 'Function invocation failed');
       }
 
-      const data = await response.json();
       const content = data.choices?.[0]?.message?.content || 'No response generated.';
       
       setAiMessages([
