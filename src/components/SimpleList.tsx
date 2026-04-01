@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Building2, Bell, ExternalLink } from 'lucide-react';
+import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Building2, Bell, ExternalLink, AlertTriangle } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 
 export interface NameEntry {
   id: string;
@@ -33,6 +34,8 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const [copiedNameId, setCopiedNameId] = useState<string | null>(null);
   const [copiedCompanyId, setCopiedCompanyId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'connected'>('all');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
   
   // Current active list data
   const currentNames = activeSubTab === 'list1' ? names : activeSubTab === 'list2' ? names2 : [];
@@ -160,8 +163,17 @@ Happy to connect.`;
   };
 
   const handleDelete = (id: string) => {
-    setNames(prev => prev.filter(n => n.id !== id));
-    setNames2(prev => prev.filter(n => n.id !== id));
+    setEntryToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = () => {
+    if (entryToDelete) {
+      setNames(prev => prev.filter(n => n.id !== entryToDelete));
+      setNames2(prev => prev.filter(n => n.id !== entryToDelete));
+      setEntryToDelete(null);
+      setShowDeleteModal(false);
+    }
   };
 
   const handleToggleConnected = (id: string) => {
@@ -726,6 +738,16 @@ Happy to connect.`;
           </div>
         </div>
       </div>
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setEntryToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete Entry"
+        message="Are you sure you want to remove this entry? This action cannot be undone."
+      />
     </motion.div>
   );
 };

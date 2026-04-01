@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, Trash2, Plus, User } from 'lucide-react';
+import { Copy, Check, Trash2, Plus, User, UserPlus, Zap, ZapOff, MessageSquare, AlertTriangle } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface NameEntry {
   id: string;
@@ -18,6 +19,7 @@ export const Messenger: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Update local storage whenever names change
@@ -68,9 +70,12 @@ I’d love to get your perspective on how teams your size are adapting to these 
   };
 
   const handleClearAll = () => {
-    if (confirm('Clear all names?')) {
-      setNames([]);
-    }
+    setShowClearAllModal(true);
+  };
+
+  const confirmClearAll = () => {
+    setNames([]);
+    setShowClearAllModal(false);
   };
 
   return (
@@ -124,6 +129,14 @@ I’d love to get your perspective on how teams your size are adapting to these 
               Clear All
             </button>
           )}
+          
+          <ConfirmationModal
+            isOpen={showClearAllModal}
+            onClose={() => setShowClearAllModal(false)}
+            onConfirm={confirmClearAll}
+            title="Clear All Names"
+            message="Are you sure you want to clear all names from the list? This action cannot be undone."
+          />
         </motion.div>
 
         {/* Name List for Quick Reference */}

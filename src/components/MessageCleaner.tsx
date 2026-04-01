@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, Eraser, UserPlus, Zap, ZapOff } from 'lucide-react';
+import { Copy, Check, Eraser, UserPlus, Zap, ZapOff, AlertTriangle } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 
 const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
 const AUTO_ADD_STORAGE_KEY = 'message_cleaner_auto_add';
@@ -13,6 +14,7 @@ export const MessageCleaner: React.FC<MessageCleanerProps> = ({ onNamesUpdated }
   const [inputHtml, setInputHtml] = useState('');
   const [copied, setCopied] = useState(false);
   const [listAdded, setListAdded] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const [autoAdd, setAutoAdd] = useState(() => {
     const saved = localStorage.getItem(AUTO_ADD_STORAGE_KEY);
     return saved === null ? true : saved === 'true'; // Default to true if not set
@@ -419,11 +421,16 @@ export const MessageCleaner: React.FC<MessageCleanerProps> = ({ onNamesUpdated }
   };
 
   const handleClear = () => {
+    setShowClearModal(true);
+  };
+
+  const confirmClear = () => {
     setInputHtml('');
     // Also clear the div content manually since it's contentEditable
     const inputDiv = document.getElementById('message-cleaner-input');
     if (inputDiv) inputDiv.innerHTML = '';
     setListAdded(false);
+    setShowClearModal(false);
   };
 
   const handleAddToList = (manualNameOverride?: string) => {
@@ -548,6 +555,16 @@ export const MessageCleaner: React.FC<MessageCleanerProps> = ({ onNamesUpdated }
             className="w-full h-96 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 overflow-y-auto font-mono leading-relaxed"
             style={{ whiteSpace: 'pre-wrap' }} 
             data-placeholder="Paste your message here..."
+          />
+
+          <ConfirmationModal
+            isOpen={showClearModal}
+            onClose={() => setShowClearModal(false)}
+            onConfirm={confirmClear}
+            title="Clear Input"
+            message="Are you sure you want to clear the input? This will remove all pasted content."
+            confirmText="Clear"
+            variant="warning"
           />
         </div>
 

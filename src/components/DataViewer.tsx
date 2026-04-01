@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FileSpreadsheet, Trash2, Download, Copy, Check, Grid, List, User, Search, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileSpreadsheet, Trash2, Download, Copy, Check, Grid, List, User, Search, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 import * as XLSX from 'xlsx';
 type Row = Record<string, unknown>;
 
@@ -30,6 +31,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [assigneeName, setAssigneeName] = useState<string>('Nikki Sixx Acosta');
+  const [showClearModal, setShowClearModal] = useState(false);
   // searchTerm state lifted to parent
   // filterDirection and currentMatchIndex state lifted to parent
 
@@ -325,7 +327,7 @@ export const DataViewer: React.FC<DataViewerProps> = ({
             <span>Export</span>
           </button>
           <button
-            onClick={onReset}
+            onClick={() => setShowClearModal(true)}
             className="flex items-center space-x-2 px-3 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-colors border border-transparent hover:border-red-500/20"
           >
             <Trash2 className="w-4 h-4" />
@@ -333,6 +335,17 @@ export const DataViewer: React.FC<DataViewerProps> = ({
           </button>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={() => {
+          onReset();
+          setShowClearModal(false);
+        }}
+        title="Clear Data"
+        message="Are you sure you want to clear the uploaded Excel data? This will reset the viewer."
+      />
 
       {filteredData.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 bg-zinc-900/30 rounded-lg border border-zinc-800 text-center">

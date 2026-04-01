@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Copy, Check, Wand2, Users, User, Trash2, Bell, Ban, Search, Calendar, Settings, X, BookOpen, HelpCircle, Edit3, Link as LinkIcon, Send, Loader2, AlertTriangle, Archive, FileText, Download } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 import { supabase } from '../supabase';
 
 const STORAGE_KEY_INPUT = 'linkedin_strategist_input';
@@ -49,7 +50,11 @@ export const DocxPromptReader: React.FC = () => {
   const [show21DayModal, setShow21DayModal] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
-  
+  const [showDeleteProspectModal, setShowDeleteProspectModal] = useState(false);
+  const [prospectToDelete, setProspectToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
+  const [clearConfirmationInput, setClearConfirmationInput] = useState('');
+
   // Edit name state
   const [editingProspectId, setEditingProspectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -579,19 +584,23 @@ export const DocxPromptReader: React.FC = () => {
   };
 
   const handleDeleteProspect = (prospectId: string, name: string) => {
-    // Confirm deletion
-    if (!confirm(`Delete "${name}" from prospects?`)) {
-      return;
+    setProspectToDelete({ id: prospectId, name });
+    setShowDeleteProspectModal(true);
+  };
+
+  const confirmDeleteProspect = () => {
+    if (prospectToDelete) {
+      setDeletedProspects(prev => [...prev, prospectToDelete.name]);
+      setStoredProspects(prev => prev.filter(p => p.id !== prospectToDelete.id));
+      // Also remove the status for this name
+      setProspectStatuses(prev => {
+        const newStatuses = { ...prev };
+        delete newStatuses[prospectToDelete.name];
+        return newStatuses;
+      });
+      setProspectToDelete(null);
+      setShowDeleteProspectModal(false);
     }
-    
-    setDeletedProspects(prev => [...prev, name]);
-    setStoredProspects(prev => prev.filter(p => p.id !== prospectId));
-    // Also remove the status for this name
-    setProspectStatuses(prev => {
-      const newStatuses = { ...prev };
-      delete newStatuses[name];
-      return newStatuses;
-    });
   };
 
   const handleEditProspect = (prospect: Prospect) => {
@@ -658,21 +667,13 @@ export const DocxPromptReader: React.FC = () => {
   };
 
   const handleClear = () => {
+    setShowClearAllModal(true);
+  };
+
+  const confirmClearAll = () => {
     const totalProspects = storedProspects.length;
-    const confirmMessage = totalProspects > 0 
-      ? `⚠️ WARNING: This will permanently delete ${totalProspects} prospect${totalProspects > 1 ? 's' : ''} and all conversation data!\n\nType "CLEAR" to confirm deletion:`
-      : 'Clear conversation?';
-    
-    if (totalProspects > 0) {
-      const userInput = prompt(confirmMessage);
-      if (userInput !== 'CLEAR') {
-        alert('Clear operation cancelled. Your data is safe.');
-        return;
-      }
-    } else {
-      if (!confirm(confirmMessage)) {
-        return;
-      }
+    if (totalProspects > 0 && clearConfirmationInput !== 'CLEAR') {
+      return;
     }
     
     setInputMessage('');
@@ -684,6 +685,8 @@ export const DocxPromptReader: React.FC = () => {
     localStorage.removeItem(STORAGE_KEY_STATUSES);
     localStorage.removeItem(STORAGE_KEY_DELETED);
     localStorage.removeItem(STORAGE_KEY_PROSPECTS);
+    setShowClearAllModal(false);
+    setClearConfirmationInput('');
   };
 
   const filteredProspects = React.useMemo(() => {
@@ -1678,7 +1681,42 @@ ${sender}`;
                           </button>
                         </div>
                       )}
-                    </motion.div>
+                      <ConfirmationModal
+        isOpen={showDeleteProspectModal}
+        onClose={() => {
+          setShowDeleteProspectModal(false);
+          setProspectToDelete(null);
+        }}
+        onConfirm={confirmDeleteProspect}
+        title="Delete Prospect"
+        message={`Are you sure you want to delete "${prospectToDelete?.name}" from prospects? This action cannot be undone.`}
+      />
+
+      <ConfirmationModal
+        isOpen={showClearAllModal}
+        onClose={() => {
+          setShowClearAllModal(false);
+          setClearConfirmationInput('');
+        }}
+        onConfirm={confirmClearAll}
+        title="Clear All Data"
+        message={storedProspects.length > 0 
+          ? `⚠️ WARNING: This will permanently delete ${storedProspects.length} prospect${storedProspects.length > 1 ? 's' : ''} and all conversation data! Type "CLEAR" below to confirm:`
+          : "Are you sure you want to clear the conversation and all data?"}
+        confirmText="Clear Everything"
+        isConfirmDisabled={storedProspects.length > 0 && clearConfirmationInput !== 'CLEAR'}
+      >
+        {storedProspects.length > 0 && (
+          <input
+            type="text"
+            value={clearConfirmationInput}
+            onChange={(e) => setClearConfirmationInput(e.target.value)}
+            placeholder='Type "CLEAR" to confirm'
+            className="w-full mt-4 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
+          />
+        )}
+      </ConfirmationModal>
+    </motion.div>
                   );
                 })}
               </div>

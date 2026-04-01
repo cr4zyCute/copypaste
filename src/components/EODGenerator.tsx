@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, Plus, Trash2, Calendar, ClipboardList } from 'lucide-react';
+import { Copy, Check, Plus, Trash2, Calendar, ClipboardList, AlertTriangle } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface EODTask {
   id: string;
@@ -43,6 +44,11 @@ export const EODGenerator: React.FC = () => {
 
   const [newTask, setNewTask] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
+  const [showDeleteTaskModal, setShowDeleteTaskModal] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+
   const nextId = () => {
     return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
   };
@@ -52,12 +58,15 @@ export const EODGenerator: React.FC = () => {
   };
 
   const handleResetToTemplate = () => {
-    if (confirm('Reset to default template? This will clear current tasks.')) {
-      setTasks(DEFAULT_TASKS.map((content, idx) => ({
-        id: String(idx),
-        content
-      })));
-    }
+    setShowResetModal(true);
+  };
+
+  const confirmReset = () => {
+    setTasks(DEFAULT_TASKS.map((content, idx) => ({
+      id: String(idx),
+      content
+    })));
+    setShowResetModal(false);
   };
 
   const handleQuickAdd = (content: string) => {
@@ -69,9 +78,12 @@ export const EODGenerator: React.FC = () => {
   };
 
   const handleClearAll = () => {
-    if (confirm('Clear all tasks?')) {
-      setTasks([]);
-    }
+    setShowClearAllModal(true);
+  };
+
+  const confirmClearAll = () => {
+    setTasks([]);
+    setShowClearAllModal(false);
   };
 
   useEffect(() => {
@@ -96,7 +108,16 @@ export const EODGenerator: React.FC = () => {
   };
 
   const handleRemoveTask = (id: string) => {
-    setTasks(tasks.filter(t => t.id !== id));
+    setTaskToDelete(id);
+    setShowDeleteTaskModal(true);
+  };
+
+  const confirmDeleteTask = () => {
+    if (taskToDelete) {
+      setTasks(tasks.filter(t => t.id !== taskToDelete));
+      setTaskToDelete(null);
+      setShowDeleteTaskModal(false);
+    }
   };
 
   const handleUpdateTask = (id: string, content: string) => {
@@ -287,6 +308,36 @@ export const EODGenerator: React.FC = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* Modals */}
+      <ConfirmationModal
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        onConfirm={confirmReset}
+        title="Reset Template"
+        message="Are you sure you want to reset to the default template? This will clear all your current tasks."
+        confirmText="Reset"
+        variant="warning"
+      />
+
+      <ConfirmationModal
+        isOpen={showClearAllModal}
+        onClose={() => setShowClearAllModal(false)}
+        onConfirm={confirmClearAll}
+        title="Clear All Tasks"
+        message="Are you sure you want to clear all tasks? This action cannot be undone."
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteTaskModal}
+        onClose={() => {
+          setShowDeleteTaskModal(false);
+          setTaskToDelete(null);
+        }}
+        onConfirm={confirmDeleteTask}
+        title="Delete Task"
+        message="Are you sure you want to remove this task?"
+      />
     </div>
   );
 };
