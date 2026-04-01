@@ -10,7 +10,7 @@ import { SimpleList, type NameEntry } from './components/SimpleList';
 import { LinkFormatter } from './components/LinkFormatter';
 import { Login } from './components/Login';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check, Link as LinkIcon } from 'lucide-react';
+import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check, Link as LinkIcon, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 type Row = Record<string, unknown>;
 
@@ -66,6 +66,7 @@ function App() {
 
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSyncOpen, setIsSyncOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [syncCode, setSyncCode] = useState('');
   const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -482,7 +483,15 @@ function App() {
         className="flex min-h-screen"
       >
         {/* Sidebar Navigation */}
-        <aside className="w-64 border-r border-zinc-800 bg-zinc-950 flex flex-col fixed inset-y-0 left-0 z-40">
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.aside 
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="w-64 border-r border-zinc-800 bg-zinc-950 flex flex-col fixed inset-y-0 left-0 z-40"
+            >
           <div className="p-6 border-b border-zinc-800">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
@@ -587,14 +596,25 @@ function App() {
                 />
               </label>
             </div>
-          </div>
-        </aside>
+          </motion.aside>
+          )}
+        </AnimatePresence>
 
         {/* Main Content Area */}
-        <div className="flex-1 ml-64 min-h-screen bg-black relative">
+        <div className={`flex-1 min-h-screen bg-black relative transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
           {/* Subtle background glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-500/10 blur-[120px] pointer-events-none rounded-full" />
           
+          <div className="absolute top-6 left-6 z-[110]">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all group shadow-lg"
+              title={isSidebarOpen ? 'Close Sidebar' : 'Open Sidebar'}
+            >
+              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+            </button>
+          </div>
+
           {/* Notification Bell Icon with Dropdown */}
           <div className="fixed top-6 right-6 z-[110]">
             <div className="flex items-center gap-3">
