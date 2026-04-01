@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FileSpreadsheet, Trash2, Download, Copy, Check, Grid, List, User, Search, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
+import { FileSpreadsheet, Trash2, Download, Copy, Check, Grid, List, User, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 import * as XLSX from 'xlsx';
 type Row = Record<string, unknown>;

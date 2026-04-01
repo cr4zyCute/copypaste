@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, Trash2, Plus, User, UserPlus, Zap, ZapOff, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Copy, Check, Trash2, Plus, User } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface NameEntry {

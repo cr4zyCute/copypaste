@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, Eraser, UserPlus, Zap, ZapOff, AlertTriangle } from 'lucide-react';
+import { Copy, Check, Eraser, UserPlus, Zap, ZapOff } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';

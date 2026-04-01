@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, Plus, Trash2, Calendar, ClipboardList, AlertTriangle } from 'lucide-react';
+import { Copy, Check, Plus, Trash2, Calendar, ClipboardList } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface EODTask {
