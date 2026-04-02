@@ -205,7 +205,7 @@ export const Messenger: React.FC = () => {
                     value={tempMsg}
                     onChange={(e) => setTempMsg(e.target.value)}
                     rows={8}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none font-sans whitespace-pre-wrap"
                     placeholder="Type your template here..."
                   />
                 </div>

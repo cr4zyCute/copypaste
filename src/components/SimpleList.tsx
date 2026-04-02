@@ -936,8 +936,8 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
                   <textarea
                     value={tempMsg1}
                     onChange={(e) => setTempMsg1(e.target.value)}
-                    rows={4}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
+                    rows={6}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none font-sans whitespace-pre-wrap"
                   />
                 </div>
 
@@ -949,8 +949,8 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
                   <textarea
                     value={tempMsg2}
                     onChange={(e) => setTempMsg2(e.target.value)}
-                    rows={4}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
+                    rows={6}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none font-sans whitespace-pre-wrap"
                   />
                 </div>
               </div>
