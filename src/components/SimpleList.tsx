@@ -198,14 +198,14 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
     }
   };
 
-  const handleCopyCompany = async (entry: NameEntry) => {
-    if (!entry.jobPosition) return;
+  const handleCopyLink = async (entry: NameEntry) => {
+    if (!entry.link) return;
     try {
-      await navigator.clipboard.writeText(entry.jobPosition);
-      setCopiedCompanyId(entry.id);
+      await navigator.clipboard.writeText(entry.link);
+      setCopiedCompanyId(entry.id); // Re-using state for visual feedback
       setTimeout(() => setCopiedCompanyId(null), 2000);
     } catch (err) {
-      console.error('Failed to copy company:', err);
+      console.error('Failed to copy link:', err);
     }
   };
 
@@ -794,17 +794,19 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
                               </a>
                             )}
                             {entry.jobPosition && (
+                              {entry.link && (
                               <button
-                                onClick={() => handleCopyCompany(entry)}
+                                onClick={() => handleCopyLink(entry)}
                                 className={`p-1.5 rounded-md transition-all ${
                                   copiedCompanyId === entry.id 
                                     ? 'bg-green-500/20 text-green-400' 
                                     : 'text-zinc-600 hover:text-blue-400 hover:bg-zinc-800'
                                 }`}
-                                title="Copy position/company"
+                                title="Copy link"
                               >
-                                {copiedCompanyId === entry.id ? <Check className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+                                {copiedCompanyId === entry.id ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
                               </button>
+                            )}
                             )}
                             <button
                               onClick={() => handleCopyNameOnly(entry)}
