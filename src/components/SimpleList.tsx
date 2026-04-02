@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Building2, Bell, ExternalLink, Settings, Edit2 } from 'lucide-react';
+import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Bell, ExternalLink, Settings, Edit2 } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 export interface NameEntry {
@@ -793,8 +793,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
                                 <ExternalLink className="w-4 h-4" />
                               </a>
                             )}
-                            {entry.jobPosition && (
-                              {entry.link && (
+                            {entry.link && (
                               <button
                                 onClick={() => handleCopyLink(entry)}
                                 className={`p-1.5 rounded-md transition-all ${
@@ -806,7 +805,6 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
                               >
                                 {copiedCompanyId === entry.id ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
                               </button>
-                            )}
                             )}
                             <button
                               onClick={() => handleCopyNameOnly(entry)}
