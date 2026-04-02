@@ -51,6 +51,27 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const [tempMsg1, setTempMsg1] = useState(message1Template);
   const [tempMsg2, setTempMsg2] = useState(message2Template);
 
+  const [dailyNotes1, setDailyNotes1] = useState<Record<string, string>>(() => 
+    JSON.parse(localStorage.getItem('manual_list1_daily_notes') || '{}')
+  );
+  const [dailyNotes2, setDailyNotes2] = useState<Record<string, string>>(() => 
+    JSON.parse(localStorage.getItem('manual_list2_daily_notes') || '{}')
+  );
+
+  const handleUpdateNote = (val: string) => {
+    if (selectedDate === 'all') return;
+    
+    if (activeSubTab === 'list1') {
+      const newNotes = { ...dailyNotes1, [selectedDate]: val };
+      setDailyNotes1(newNotes);
+      localStorage.setItem('manual_list1_daily_notes', JSON.stringify(newNotes));
+    } else if (activeSubTab === 'list2') {
+      const newNotes = { ...dailyNotes2, [selectedDate]: val };
+      setDailyNotes2(newNotes);
+      localStorage.setItem('manual_list2_daily_notes', JSON.stringify(newNotes));
+    }
+  };
+
   const handleSaveMessages = () => {
     setMessage1Template(tempMsg1);
     setMessage2Template(tempMsg2);
@@ -537,10 +558,26 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
 
           {/* List Section */}
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden min-h-[300px] flex flex-col">
-            <div className="p-3 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-2">
-                {filteredNames.length} {filteredNames.length === 1 ? 'Name' : 'Names'} Showing
-              </span>
+            <div className="p-3 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-2 whitespace-nowrap">
+                  {filteredNames.length} {filteredNames.length === 1 ? 'Name' : 'Names'} Showing
+                </span>
+                
+                {selectedDate !== 'all' && activeSubTab !== 'reminders' && (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest whitespace-nowrap">Note:</span>
+                    <input
+                      type="text"
+                      value={(activeSubTab === 'list1' ? dailyNotes1 : dailyNotes2)[selectedDate] || ''}
+                      onChange={(e) => handleUpdateNote(e.target.value)}
+                      placeholder="Add a daily note..."
+                      className="bg-transparent border-none text-[11px] text-zinc-400 placeholder-zinc-700 focus:outline-none focus:ring-0 p-0 w-full truncate italic"
+                    />
+                  </div>
+                )}
+              </div>
+
               {activeSubTab === 'list2' && (
                 <div className="flex items-center gap-2">
                   <button
