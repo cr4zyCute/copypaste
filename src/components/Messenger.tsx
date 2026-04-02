@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, Trash2, Plus, User } from 'lucide-react';
+import { Copy, Check, Trash2, Plus, User, Settings, Edit2, X } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface NameEntry {
@@ -20,6 +20,26 @@ export const Messenger: React.FC = () => {
   });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showClearAllModal, setShowClearAllModal] = useState(false);
+  const [showEditMessageModal, setShowEditMessageModal] = useState(false);
+  
+  const [messageTemplate, setMessageTemplate] = useState(() => 
+    localStorage.getItem('quick_connect_msg') || 
+    "Thanks for connecting, {{name}}. I hope you're having a productive week so far.\nI’m curious—with how hard it is to find reliable admin staff right now, are you handling your after-hours and overflow calls in-house, or is that responsibility falling on your technicians?\nI’d love to get your perspective on how teams your size are adapting to these staffing challenges."
+  );
+  
+  const [tempMsg, setTempMsg] = useState(messageTemplate);
+
+  const handleSaveMessage = () => {
+    setMessageTemplate(tempMsg);
+    localStorage.setItem('quick_connect_msg', tempMsg);
+    setShowEditMessageModal(false);
+  };
+
+  const handleOpenEditMessage = () => {
+    setTempMsg(messageTemplate);
+    setShowEditMessageModal(true);
+  };
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Update local storage whenever names change
@@ -28,9 +48,7 @@ export const Messenger: React.FC = () => {
   }, [names]);
 
   const getMessage = (firstName: string) => {
-    return `Thanks for connecting, ${firstName}. I hope you're having a productive week so far.
-I’m curious—with how hard it is to find reliable admin staff right now, are you handling your after-hours and overflow calls in-house, or is that responsibility falling on your technicians?
-I’d love to get your perspective on how teams your size are adapting to these staffing challenges.`;
+    return messageTemplate.replace(/{{name}}/g, firstName);
   };
 
   const handleAddName = (e?: React.FormEvent) => {
@@ -88,10 +106,19 @@ I’d love to get your perspective on how teams your size are adapting to these 
           className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 backdrop-blur-sm"
         >
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <User className="w-5 h-5 text-blue-400" />
-              Add Names
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-400" />
+                Add Names
+              </h2>
+              <button
+                onClick={handleOpenEditMessage}
+                className="p-1.5 text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 rounded-md transition-all"
+                title="Edit message template"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <span className="px-3 py-1 bg-zinc-800 rounded-full text-xs font-medium text-zinc-400 border border-zinc-700">
               {names.length} {names.length === 1 ? 'Name' : 'Names'}
             </span>
@@ -138,6 +165,69 @@ I’d love to get your perspective on how teams your size are adapting to these 
             message="Are you sure you want to clear all names from the list? This action cannot be undone."
           />
         </motion.div>
+
+        {/* Edit Message Modal */}
+        <AnimatePresence>
+          {showEditMessageModal && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowEditMessageModal(false)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden"
+              >
+                <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-blue-400" />
+                    Edit Quick Connect Template
+                  </h3>
+                  <button
+                    onClick={() => setShowEditMessageModal(false)}
+                    className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors rounded-lg hover:bg-zinc-800"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-zinc-400">Message Template</label>
+                    <span className="text-[10px] text-zinc-600">Use {"{{name}}"} for first name</span>
+                  </div>
+                  <textarea
+                    value={tempMsg}
+                    onChange={(e) => setTempMsg(e.target.value)}
+                    rows={8}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
+                    placeholder="Type your template here..."
+                  />
+                </div>
+
+                <div className="p-6 bg-zinc-900/50 border-t border-zinc-800 flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowEditMessageModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveMessage}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         {/* Name List for Quick Reference */}
         {names.length > 0 && (
