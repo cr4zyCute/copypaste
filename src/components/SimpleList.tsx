@@ -34,7 +34,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const [copiedNameId, setCopiedNameId] = useState<string | null>(null);
   const [copiedCompanyId, setCopiedCompanyId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'connected'>('all');
-  const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'due'>('all');
+  const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'done'>('all');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
   
@@ -253,9 +253,12 @@ Happy to connect.`;
           if (!matchesSearch) return false;
 
           if (followUpFilter === 'all') return true;
+          if (followUpFilter === 'done') return !!n.followUpDone;
+          
+          // For countdown filters (1, 2, 3), exclude those already done
+          if (n.followUpDone) return false;
           
           const diffDays = getDiffDays(n.connectedAt!);
-          if (followUpFilter === 'due') return diffDays <= 0;
           return diffDays === parseInt(followUpFilter);
         })
         .sort((a, b) => (a.connectedAt || 0) - (b.connectedAt || 0));
@@ -590,14 +593,14 @@ Happy to connect.`;
                     1 Day
                   </button>
                   <button
-                    onClick={() => setFollowUpFilter('due')}
+                    onClick={() => setFollowUpFilter('done')}
                     className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
-                      followUpFilter === 'due' 
-                        ? 'bg-zinc-800 text-red-400 shadow-sm' 
+                      followUpFilter === 'done' 
+                        ? 'bg-zinc-800 text-emerald-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
-                    Due
+                    Done
                   </button>
                 </div>
               )}
