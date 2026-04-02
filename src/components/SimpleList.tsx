@@ -382,8 +382,17 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
               {activeSubTab === 'reminders' ? <Bell className="w-6 h-6 text-blue-400" /> : <UserPlus className="w-6 h-6 text-blue-400" />}
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-zinc-100">
+              <h3 className="text-xl font-semibold text-zinc-100 flex items-center gap-2">
                 {activeSubTab === 'list1' ? 'Manual Name List 1' : activeSubTab === 'list2' ? 'Manual Name List 2' : 'Follow-ups'}
+                {activeSubTab === 'list2' && (
+                  <button
+                    onClick={handleOpenEditMessages}
+                    className="p-1.5 text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 rounded-md transition-all"
+                    title="Edit message templates"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </h3>
               <p className="text-sm text-zinc-500">
                 {activeSubTab === 'reminders' 
@@ -561,7 +570,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
             <div className="p-3 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center gap-4">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-2 whitespace-nowrap">
-                  {filteredNames.length} {filteredNames.length === 1 ? 'Name' : 'Names'} Showing
+                  {filteredNames.length} {activeSubTab !== 'list2' && (filteredNames.length === 1 ? 'Name' : 'Names')} Showing
                 </span>
                 
                 {selectedDate !== 'all' && activeSubTab !== 'reminders' && (
@@ -579,46 +588,37 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
               </div>
 
               {activeSubTab === 'list2' && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-zinc-950/50 p-1 rounded-lg border border-zinc-800/50">
                   <button
-                    onClick={handleOpenEditMessages}
-                    className="p-1.5 text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 rounded-md transition-all"
-                    title="Edit message templates"
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                      statusFilter === 'all' 
+                        ? 'bg-zinc-800 text-zinc-200 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
                   >
-                    <Edit2 className="w-3.5 h-3.5" />
+                    All
                   </button>
-                  <div className="flex items-center gap-1 bg-zinc-950/50 p-1 rounded-lg border border-zinc-800/50">
-                    <button
-                      onClick={() => setStatusFilter('all')}
-                      className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
-                        statusFilter === 'all' 
-                          ? 'bg-zinc-800 text-zinc-200 shadow-sm' 
-                          : 'text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter('sent')}
-                      className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
-                        statusFilter === 'sent' 
-                          ? 'bg-zinc-800 text-green-400 shadow-sm' 
-                          : 'text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      Sent
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter('connected')}
-                      className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
-                        statusFilter === 'connected' 
-                          ? 'bg-zinc-800 text-blue-400 shadow-sm' 
-                          : 'text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      Connected
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setStatusFilter('sent')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                      statusFilter === 'sent' 
+                        ? 'bg-zinc-800 text-green-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Sent
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('connected')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                      statusFilter === 'connected' 
+                        ? 'bg-zinc-800 text-blue-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Connected
+                  </button>
                 </div>
               )}
               {activeSubTab === 'reminders' && (
