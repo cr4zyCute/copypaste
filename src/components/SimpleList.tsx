@@ -746,35 +746,39 @@ Happy to connect.`;
                             >
                               {copiedNameId === entry.id ? <Check className="w-4 h-4" /> : <UserCircle className="w-4 h-4" />}
                             </button>
-                            <button
-                              onClick={() => handleToggleConnected(entry.id)}
-                              className={`p-1.5 rounded-md transition-all ${
-                                entry.connected
-                                  ? 'bg-blue-500/20 text-blue-400'
-                                  : 'text-zinc-600 hover:text-blue-400 hover:bg-zinc-800'
-                              }`}
-                              title={entry.connected ? "Mark as not connected" : "Mark as connected"}
-                            >
-                              <LinkIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleCopyMessage1(entry)}
-                              className={`p-1.5 rounded-md transition-all relative ${
-                                copiedId1 === entry.id 
-                                  ? 'bg-green-500/20 text-green-400' 
-                                  : 'text-zinc-600 hover:text-blue-400 hover:bg-zinc-800'
-                              }`}
-                              title="Copy connect message 1"
-                            >
-                              {copiedId1 === entry.id ? <Check className="w-4 h-4" /> : (
-                                <>
-                                  <MessageCircle className="w-4 h-4" />
-                                  {activeSubTab === 'list2' && (
-                                    <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-blue-500 text-white w-3 h-3 flex items-center justify-center rounded-full">1</span>
+                            {activeSubTab !== 'list1' && (
+                              <>
+                                <button
+                                  onClick={() => handleToggleConnected(entry.id)}
+                                  className={`p-1.5 rounded-md transition-all ${
+                                    entry.connected
+                                      ? 'bg-blue-500/20 text-blue-400'
+                                      : 'text-zinc-600 hover:text-blue-400 hover:bg-zinc-800'
+                                  }`}
+                                  title={entry.connected ? "Mark as not connected" : "Mark as connected"}
+                                >
+                                  <LinkIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleCopyMessage1(entry)}
+                                  className={`p-1.5 rounded-md transition-all relative ${
+                                    copiedId1 === entry.id 
+                                      ? 'bg-green-500/20 text-green-400' 
+                                      : 'text-zinc-600 hover:text-blue-400 hover:bg-zinc-800'
+                                  }`}
+                                  title="Copy connect message 1"
+                                >
+                                  {copiedId1 === entry.id ? <Check className="w-4 h-4" /> : (
+                                    <>
+                                      <MessageCircle className="w-4 h-4" />
+                                      {activeSubTab === 'list2' && (
+                                        <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-blue-500 text-white w-3 h-3 flex items-center justify-center rounded-full">1</span>
+                                      )}
+                                    </>
                                   )}
-                                </>
-                              )}
-                            </button>
+                                </button>
+                              </>
+                            )}
                             {activeSubTab === 'list2' && (
                               <button
                                 onClick={() => handleCopyMessage2(entry)}
