@@ -596,7 +596,8 @@ function App() {
                 />
               </label>
             </div>
-          </motion.aside>
+          </div>
+        </motion.aside>
           )}
         </AnimatePresence>
 
