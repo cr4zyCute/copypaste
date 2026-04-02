@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Building2, Bell, ExternalLink } from 'lucide-react';
+import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Building2, Bell, ExternalLink, Settings, Edit2 } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 export interface NameEntry {
@@ -37,6 +37,33 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'done'>('all');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
+  const [showEditMessagesModal, setShowEditMessagesModal] = useState(false);
+
+  const [message1Template, setMessage1Template] = useState(() => 
+    localStorage.getItem('manual_list_msg1') || 
+    "Hi {{name}}, I work with service businesses like HVAC, plumbing, and facilities teams to smooth out dispatch chaos and after-hours coverage. Always interested in learning how others handle the labor crunch. \n\nHappy to connect."
+  );
+  const [message2Template, setMessage2Template] = useState(() => 
+    localStorage.getItem('manual_list_msg2') || 
+    "Hi {{name}}, I work with ops leaders to smooth out dispatch chaos. Always looking to see how other teams handle the labor crunch. Happy to connect."
+  );
+  
+  const [tempMsg1, setTempMsg1] = useState(message1Template);
+  const [tempMsg2, setTempMsg2] = useState(message2Template);
+
+  const handleSaveMessages = () => {
+    setMessage1Template(tempMsg1);
+    setMessage2Template(tempMsg2);
+    localStorage.setItem('manual_list_msg1', tempMsg1);
+    localStorage.setItem('manual_list_msg2', tempMsg2);
+    setShowEditMessagesModal(false);
+  };
+
+  const handleOpenEditMessages = () => {
+    setTempMsg1(message1Template);
+    setTempMsg2(message2Template);
+    setShowEditMessagesModal(true);
+  };
   
   // Current active list data
   const currentNames = activeSubTab === 'list1' ? names : activeSubTab === 'list2' ? names2 : [];
@@ -99,9 +126,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
 
   const handleCopyMessage1 = async (entry: NameEntry) => {
     const firstName = entry.name.split(' ')[0];
-    const message = `Hi ${firstName}, I work with service businesses like HVAC, plumbing, and facilities teams to smooth out dispatch chaos and after-hours coverage. Always interested in learning how others handle the labor crunch. 
-
-Happy to connect.`;
+    const message = message1Template.replace(/{{name}}/g, firstName);
     
     try {
       await navigator.clipboard.writeText(message);
@@ -118,7 +143,7 @@ Happy to connect.`;
 
   const handleCopyMessage2 = async (entry: NameEntry) => {
     const firstName = entry.name.split(' ')[0];
-    const message = `Hi ${firstName}, I work with ops leaders to smooth out dispatch chaos. Always looking to see how other teams handle the labor crunch. Happy to connect.`;
+    const message = message2Template.replace(/{{name}}/g, firstName);
     
     try {
       await navigator.clipboard.writeText(message);
@@ -517,37 +542,46 @@ Happy to connect.`;
                 {filteredNames.length} {filteredNames.length === 1 ? 'Name' : 'Names'} Showing
               </span>
               {activeSubTab === 'list2' && (
-                <div className="flex items-center gap-1 bg-zinc-950/50 p-1 rounded-lg border border-zinc-800/50">
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setStatusFilter('all')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
-                      statusFilter === 'all' 
-                        ? 'bg-zinc-800 text-zinc-200 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
+                    onClick={handleOpenEditMessages}
+                    className="p-1.5 text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 rounded-md transition-all"
+                    title="Edit message templates"
                   >
-                    All
+                    <Edit2 className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => setStatusFilter('sent')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
-                      statusFilter === 'sent' 
-                        ? 'bg-zinc-800 text-green-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
-                  >
-                    Sent
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter('connected')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
-                      statusFilter === 'connected' 
-                        ? 'bg-zinc-800 text-blue-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
-                  >
-                    Connected
-                  </button>
+                  <div className="flex items-center gap-1 bg-zinc-950/50 p-1 rounded-lg border border-zinc-800/50">
+                    <button
+                      onClick={() => setStatusFilter('all')}
+                      className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                        statusFilter === 'all' 
+                          ? 'bg-zinc-800 text-zinc-200 shadow-sm' 
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('sent')}
+                      className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                        statusFilter === 'sent' 
+                          ? 'bg-zinc-800 text-green-400 shadow-sm' 
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      Sent
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('connected')}
+                      className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                        statusFilter === 'connected' 
+                          ? 'bg-zinc-800 text-blue-400 shadow-sm' 
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      Connected
+                    </button>
+                  </div>
                 </div>
               )}
               {activeSubTab === 'reminders' && (
@@ -825,6 +859,83 @@ Happy to connect.`;
         title="Delete Entry"
         message="Are you sure you want to remove this entry? This action cannot be undone."
       />
+
+      {/* Edit Messages Modal */}
+      <AnimatePresence>
+        {showEditMessagesModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowEditMessagesModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-blue-400" />
+                  Edit Message Templates
+                </h3>
+                <button
+                  onClick={() => setShowEditMessagesModal(false)}
+                  className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors rounded-lg hover:bg-zinc-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-zinc-400">Message 1 Template</label>
+                    <span className="text-[10px] text-zinc-600">Use {"{{name}}"} for first name</span>
+                  </div>
+                  <textarea
+                    value={tempMsg1}
+                    onChange={(e) => setTempMsg1(e.target.value)}
+                    rows={4}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-zinc-400">Message 2 Template</label>
+                    <span className="text-[10px] text-zinc-600">Use {"{{name}}"} for first name</span>
+                  </div>
+                  <textarea
+                    value={tempMsg2}
+                    onChange={(e) => setTempMsg2(e.target.value)}
+                    rows={4}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 bg-zinc-900/50 border-t border-zinc-800 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowEditMessagesModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveMessages}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
