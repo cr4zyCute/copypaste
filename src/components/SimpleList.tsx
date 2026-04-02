@@ -34,6 +34,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const [copiedNameId, setCopiedNameId] = useState<string | null>(null);
   const [copiedCompanyId, setCopiedCompanyId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'connected'>('all');
+  const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'due'>('all');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
   
@@ -215,12 +216,9 @@ Happy to connect.`;
     return Array.from(dates).sort().reverse();
   }, [currentNames]);
 
-  const getReminderStatus = (entry: NameEntry) => {
-    if (!entry.connectedAt) return { text: '', color: '', isDue: false };
-    if (entry.followUpDone) return { text: 'Done', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', isDue: false };
-    
+  const getDiffDays = (connectedAt: number) => {
     // Create Date objects and set hours to 0 to compare purely by day
-    const connectedDate = new Date(entry.connectedAt);
+    const connectedDate = new Date(connectedAt);
     connectedDate.setHours(0, 0, 0, 0);
     
     const targetDate = new Date(connectedDate);
@@ -230,7 +228,14 @@ Happy to connect.`;
     nowDate.setHours(0, 0, 0, 0);
     
     const diffTime = targetDate.getTime() - nowDate.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    return Math.round(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const getReminderStatus = (entry: NameEntry) => {
+    if (!entry.connectedAt) return { text: '', color: '', isDue: false };
+    if (entry.followUpDone) return { text: 'Done', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', isDue: false };
+    
+    const diffDays = getDiffDays(entry.connectedAt);
     
     if (diffDays > 1) return { text: `In ${diffDays} days`, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', isDue: false };
     if (diffDays === 1) return { text: 'Tomorrow', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', isDue: false };
@@ -241,7 +246,18 @@ Happy to connect.`;
   const filteredNames = React.useMemo(() => {
     if (activeSubTab === 'reminders') {
       return [...names, ...names2]
-        .filter(n => n.connected)
+        .filter(n => {
+          if (!n.connected) return false;
+          
+          const matchesSearch = n.name.toLowerCase().includes(searchQuery.toLowerCase());
+          if (!matchesSearch) return false;
+
+          if (followUpFilter === 'all') return true;
+          
+          const diffDays = getDiffDays(n.connectedAt!);
+          if (followUpFilter === 'due') return diffDays <= 0;
+          return diffDays === parseInt(followUpFilter);
+        })
         .sort((a, b) => (a.connectedAt || 0) - (b.connectedAt || 0));
     }
 
@@ -420,27 +436,27 @@ Happy to connect.`;
           )}
 
           {/* Search and Date Filter Section */}
-          {activeSubTab !== 'reminders' && (
-            <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search list..."
-                  className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl pl-10 pr-10 py-2 text-xs text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
-                />
-                {searchQuery && (
-                  <button 
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search list..."
+                className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl pl-10 pr-10 py-2 text-xs text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
+            {activeSubTab !== 'reminders' && (
               <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                 <Calendar className="w-4 h-4 text-zinc-500 shrink-0" />
                 <div className="flex gap-1">
@@ -488,8 +504,8 @@ Happy to connect.`;
                   })}
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* List Section */}
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden min-h-[300px] flex flex-col">
@@ -528,6 +544,60 @@ Happy to connect.`;
                     }`}
                   >
                     Connected
+                  </button>
+                </div>
+              )}
+              {activeSubTab === 'reminders' && (
+                <div className="flex items-center gap-1 bg-zinc-950/50 p-1 rounded-lg border border-zinc-800/50 overflow-x-auto no-scrollbar">
+                  <button
+                    onClick={() => setFollowUpFilter('all')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                      followUpFilter === 'all' 
+                        ? 'bg-zinc-800 text-zinc-200 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setFollowUpFilter('3')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                      followUpFilter === '3' 
+                        ? 'bg-zinc-800 text-blue-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    3 Days
+                  </button>
+                  <button
+                    onClick={() => setFollowUpFilter('2')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                      followUpFilter === '2' 
+                        ? 'bg-zinc-800 text-amber-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    2 Days
+                  </button>
+                  <button
+                    onClick={() => setFollowUpFilter('1')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                      followUpFilter === '1' 
+                        ? 'bg-zinc-800 text-orange-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    1 Day
+                  </button>
+                  <button
+                    onClick={() => setFollowUpFilter('due')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                      followUpFilter === 'due' 
+                        ? 'bg-zinc-800 text-red-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Due
                   </button>
                 </div>
               )}
