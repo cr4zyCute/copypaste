@@ -33,7 +33,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
   const [copiedId2, setCopiedId2] = useState<string | null>(null);
   const [copiedNameId, setCopiedNameId] = useState<string | null>(null);
   const [copiedCompanyId, setCopiedCompanyId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'connected'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'connected' | 'none'>('all');
   const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'done'>('all');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
@@ -322,6 +322,8 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
           matchesStatus = !!n.sent;
         } else if (statusFilter === 'connected') {
           matchesStatus = !!n.connected;
+        } else if (statusFilter === 'none') {
+          matchesStatus = !n.sent && !n.connected;
         }
       }
 
@@ -618,6 +620,16 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
                     }`}
                   >
                     Connected
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('none')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                      statusFilter === 'none' 
+                        ? 'bg-zinc-800 text-amber-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    No Activity
                   </button>
                 </div>
               )}
