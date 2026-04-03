@@ -319,7 +319,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
       let matchesStatus = true;
       if (activeSubTab === 'list2') {
         if (statusFilter === 'sent') {
-          matchesStatus = !!n.sent;
+          matchesStatus = !!n.sent && !n.connected;
         } else if (statusFilter === 'connected') {
           matchesStatus = !!n.connected;
         } else if (statusFilter === 'none') {
