@@ -12,6 +12,7 @@ export interface NameEntry {
   connected?: boolean;
   connectedAt?: number;
   followUpDone?: boolean;
+  doneAt?: number;
   timestamp: number;
   addedAt: string; // ISO date string (YYYY-MM-DD)
 }
@@ -239,16 +240,21 @@ export const SimpleList: React.FC<SimpleListProps> = ({
         ...n, 
         connected: isConnected,
         connectedAt: isConnected ? Date.now() : undefined,
-        followUpDone: false // Reset done status when re-connecting
+        followUpDone: false,
+        doneAt: undefined
       };
     });
   };
 
   const handleToggleFollowUpDone = (id: string) => {
-    updateEntryGlobal(id, n => ({
-      ...n,
-      followUpDone: !n.followUpDone
-    }));
+    updateEntryGlobal(id, n => {
+      const isDone = !n.followUpDone;
+      return {
+        ...n,
+        followUpDone: isDone,
+        doneAt: isDone ? Date.now() : undefined
+      };
+    });
   };
 
   const handleCopyNames = async () => {
@@ -295,6 +301,18 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   const formatGroupDate = (addedAt?: string) => {
     if (!addedAt) return '';
     const date = new Date(`${addedAt}T00:00:00`);
+    return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }).replace(',', '');
+  };
+
+  const formatDoneDate = (doneAt?: number) => {
+    if (!doneAt) return '';
+    const date = new Date(doneAt);
+    return date.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
+  };
+
+  const formatDoneGroupDate = (doneAt?: number) => {
+    if (!doneAt) return '';
+    const date = new Date(doneAt);
     return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }).replace(',', '');
   };
 
@@ -730,11 +748,24 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                   <div className="space-y-1">
                     {filteredNames.map((entry, index, arr) => (
                       <React.Fragment key={entry.id}>
-                        {activeSubTab === 'reminders' && (index === 0 || arr[index - 1].addedAt !== entry.addedAt) && (
+                        {activeSubTab === 'reminders' && (() => {
+                          const currentGroupKey = followUpFilter === 'done' && entry.doneAt
+                            ? new Date(entry.doneAt).toISOString().split('T')[0]
+                            : entry.addedAt;
+                          const prev = arr[index - 1];
+                          const prevGroupKey = prev
+                            ? (followUpFilter === 'done' && prev.doneAt
+                                ? new Date(prev.doneAt).toISOString().split('T')[0]
+                                : prev.addedAt)
+                            : '';
+                          return index === 0 || currentGroupKey !== prevGroupKey;
+                        })() && (
                           <div className="py-3">
                             <div className="flex items-center gap-3">
                               <div className="h-px bg-zinc-800 flex-1" />
-                              <span className="text-zinc-300 text-sm font-semibold">{formatGroupDate(entry.addedAt)}</span>
+                              <span className="text-zinc-300 text-sm font-semibold">
+                                {followUpFilter === 'done' ? formatDoneGroupDate(entry.doneAt) : formatGroupDate(entry.addedAt)}
+                              </span>
                               <div className="h-px bg-zinc-800 flex-1" />
                             </div>
                           </div>
@@ -815,6 +846,11 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                             {activeSubTab === 'reminders' && (
                               <span className="text-[10px] text-zinc-600 block mt-0.5">
                                 {list1Ids.has(entry.id) ? 'Manual List 1' : 'Manual List 2'} • Added: {formatAddedDate(entry.addedAt)}
+                              </span>
+                            )}
+                            {activeSubTab === 'reminders' && entry.followUpDone && entry.doneAt && (
+                              <span className="text-[10px] text-emerald-500 block mt-0.5">
+                                Done: {formatDoneDate(entry.doneAt)}
                               </span>
                             )}
                           </div>
