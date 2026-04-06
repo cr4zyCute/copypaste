@@ -39,8 +39,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 mb-4">
             <ShieldCheck className="w-8 h-8 text-orange-500" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Tools Secure Access</h1>
-          <p className="text-zinc-500 mt-2 text-sm font-medium">Please sign in to manage your local data</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Important List Access</h1>
+          <p className="text-zinc-500 mt-2 text-sm font-medium">Please sign in to manage your important list</p>
         </div>
 
         <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-3xl p-8 shadow-2xl shadow-black/50">

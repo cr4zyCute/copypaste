@@ -10,7 +10,7 @@ import { SimpleList, type NameEntry } from './components/SimpleList';
 import { LinkFormatter } from './components/LinkFormatter';
 import { Login } from './components/Login';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check, Link as LinkIcon, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { FileSpreadsheet, Sparkles, MessageSquare, ClipboardList, FileText, ListTodo, Bell, X, LogOut, ShieldCheck, RefreshCw, Copy, Download, Upload, Check, Link as LinkIcon, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
 
 type Row = Record<string, unknown>;
 
@@ -57,7 +57,7 @@ const navItems = [
   { id: 'prompt', label: 'Copy Prompt', icon: FileText },
   { id: 'list', label: 'Simple List', icon: ListTodo },
   { id: 'link-format', label: 'Post Links', icon: LinkIcon },
-  { id: 'secure-access', label: 'Secure Access', icon: ShieldCheck },
+  { id: 'important-list', label: 'Important List', icon: ShieldCheck },
 ] as const;
 
 type TabId = (typeof navItems)[number]['id'];
@@ -71,7 +71,7 @@ const getInitialTab = (): TabId => {
   return isTabId(hashTab) ? hashTab : 'excel';
 };
 
-interface SecureEntry {
+interface ImportantEntry {
   id: string;
   name: string;
   source: string;
@@ -80,14 +80,14 @@ interface SecureEntry {
   addedAt: string;
 }
 
-interface SecureCandidate {
+interface ImportantCandidate {
   id: string;
   name: string;
   source: string;
   link?: string;
 }
 
-const SECURE_ACCESS_STORAGE_KEY = 'secure_access_added_entries';
+const IMPORTANT_LIST_STORAGE_KEY = 'important_list_added_entries';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -132,8 +132,8 @@ function App() {
   const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [secureEntries, setSecureEntries] = useState<SecureEntry[]>(() => {
-    const saved = localStorage.getItem(SECURE_ACCESS_STORAGE_KEY);
+  const [importantEntries, setImportantEntries] = useState<ImportantEntry[]>(() => {
+    const saved = localStorage.getItem(IMPORTANT_LIST_STORAGE_KEY);
     if (!saved) return [];
     try {
       const parsed = JSON.parse(saved);
@@ -144,17 +144,17 @@ function App() {
   });
 
   const visibleNavItems = useMemo(() => {
-    return isAuthenticated ? navItems : navItems.filter(item => item.id !== 'secure-access');
+    return isAuthenticated ? navItems : navItems.filter(item => item.id !== 'important-list');
   }, [isAuthenticated]);
 
-  const secureCandidates = useMemo<SecureCandidate[]>(() => {
+  const importantCandidates = useMemo<ImportantCandidate[]>(() => {
     const quickConnectRaw = localStorage.getItem('quick_connect_names');
     const promptRaw = localStorage.getItem('linkedin_strategist_prospects');
 
     const quickConnectEntries = quickConnectRaw ? JSON.parse(quickConnectRaw) : [];
     const promptEntries = promptRaw ? JSON.parse(promptRaw) : [];
 
-    const allCandidates: SecureCandidate[] = [];
+    const allCandidates: ImportantCandidate[] = [];
 
     names.forEach(entry => {
       allCandidates.push({
@@ -197,7 +197,7 @@ function App() {
       });
     }
 
-    const deduped = new Map<string, SecureCandidate>();
+    const deduped = new Map<string, ImportantCandidate>();
     allCandidates.forEach(candidate => {
       const key = `${candidate.name.trim().toLowerCase()}::${candidate.source}`;
       if (!deduped.has(key)) deduped.set(key, candidate);
@@ -206,13 +206,13 @@ function App() {
     return Array.from(deduped.values());
   }, [names, names2]);
 
-  const secureEntryKeySet = useMemo(() => {
+  const importantEntryKeySet = useMemo(() => {
     const set = new Set<string>();
-    secureEntries.forEach(entry => {
+    importantEntries.forEach(entry => {
       set.add(`${entry.name.trim().toLowerCase()}::${entry.source}`);
     });
     return set;
-  }, [secureEntries]);
+  }, [importantEntries]);
 
   useEffect(() => {
     const targetHash = `#${activeTab}`;
@@ -224,7 +224,7 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hashTab = window.location.hash.replace('#', '');
-      if (isTabId(hashTab) && (isAuthenticated || hashTab !== 'secure-access')) {
+      if (isTabId(hashTab) && (isAuthenticated || hashTab !== 'important-list')) {
         setActiveTab(hashTab);
       }
     };
@@ -234,21 +234,21 @@ function App() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated && activeTab === 'secure-access') {
+    if (!isAuthenticated && activeTab === 'important-list') {
       setActiveTab('excel');
     }
   }, [isAuthenticated, activeTab]);
 
   useEffect(() => {
-    localStorage.setItem(SECURE_ACCESS_STORAGE_KEY, JSON.stringify(secureEntries));
-  }, [secureEntries]);
+    localStorage.setItem(IMPORTANT_LIST_STORAGE_KEY, JSON.stringify(importantEntries));
+  }, [importantEntries]);
 
-  const handleAddToSecureAccess = (candidate: SecureCandidate) => {
+  const handleAddToImportantList = (candidate: ImportantCandidate) => {
     const key = `${candidate.name.trim().toLowerCase()}::${candidate.source}`;
-    if (secureEntryKeySet.has(key)) return;
+    if (importantEntryKeySet.has(key)) return;
 
     const today = new Date().toISOString().split('T')[0];
-    const newEntry: SecureEntry = {
+    const newEntry: ImportantEntry = {
       id: Math.random().toString(36).substring(2, 9),
       name: candidate.name,
       source: candidate.source,
@@ -257,7 +257,7 @@ function App() {
       addedAt: today
     };
 
-    setSecureEntries(prev => [newEntry, ...prev]);
+    setImportantEntries(prev => [newEntry, ...prev]);
   };
 
   // Follow-up logic shared with App
@@ -1186,9 +1186,9 @@ function App() {
                     setNames2={setNames2} 
                   />
                 </motion.div>
-              ) : activeTab === 'secure-access' ? (
+              ) : activeTab === 'important-list' ? (
                 <motion.div
-                  key="secure-access"
+                  key="important-list"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
@@ -1198,39 +1198,42 @@ function App() {
                   <div className="bg-zinc-900/30 border border-zinc-800 rounded-2xl p-6 space-y-6">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <h2 className="text-xl font-semibold text-zinc-100">Tools Secure Access</h2>
+                        <h2 className="text-xl font-semibold text-zinc-100">Important List</h2>
                         <p className="text-sm text-zinc-500">Add names from every list. Once added, the Add button is removed.</p>
                       </div>
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
-                        {secureEntries.length} Added
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                        {importantEntries.length} ADDED
                       </div>
                     </div>
 
                     <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-3 max-h-[340px] overflow-y-auto custom-scrollbar">
-                      {secureCandidates.length === 0 ? (
+                      {importantCandidates.length === 0 ? (
                         <div className="py-16 text-center text-zinc-600 text-sm">No names found in your lists yet.</div>
                       ) : (
                         <div className="space-y-1">
-                          {secureCandidates.map(candidate => {
+                          {importantCandidates.map(candidate => {
                             const key = `${candidate.name.trim().toLowerCase()}::${candidate.source}`;
-                            const isAdded = secureEntryKeySet.has(key);
+                            const isAdded = importantEntryKeySet.has(key);
                             return (
-                              <div key={candidate.id} className="flex items-center justify-between p-2.5 rounded-lg border border-zinc-800/60 bg-zinc-900/40">
+                              <div key={candidate.id} className="flex items-center justify-between p-3 rounded-lg border border-zinc-800/40 bg-zinc-900/20 hover:bg-zinc-900/40 transition-colors">
                                 <div className="min-w-0">
-                                  <p className="text-sm text-zinc-200 truncate">{candidate.name}</p>
-                                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{candidate.source}</p>
+                                  <p className="text-sm font-medium text-zinc-200 truncate">{candidate.name}</p>
+                                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">{candidate.source}</p>
                                 </div>
                                 {isAdded ? (
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1">
-                                    <Check className="w-3 h-3" />
-                                    Added
-                                  </span>
+                                  <button
+                                    disabled
+                                    className="shrink-0 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 cursor-not-allowed"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </button>
                                 ) : (
                                   <button
-                                    onClick={() => handleAddToSecureAccess(candidate)}
-                                    className="text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-all"
+                                    onClick={() => handleAddToImportantList(candidate)}
+                                    className="shrink-0 p-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center"
+                                    title="Add to Important List"
                                   >
-                                    Add
+                                    <Plus className="w-4 h-4" />
                                   </button>
                                 )}
                               </div>
@@ -1241,23 +1244,25 @@ function App() {
                     </div>
 
                     <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-3">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-zinc-200">Added In Secure Access</h3>
-                        {secureEntries.length > 0 && (
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <h3 className="text-sm font-semibold text-zinc-200">Added In Important List</h3>
+                        {importantEntries.length > 0 && (
                           <button
-                            onClick={() => setSecureEntries([])}
+                            onClick={() => setImportantEntries([])}
                             className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-400"
                           >
                             Clear
                           </button>
                         )}
                       </div>
-                      {secureEntries.length === 0 ? (
-                        <p className="text-sm text-zinc-600 py-8 text-center">No names added yet.</p>
+                      {importantEntries.length === 0 ? (
+                        <div className="py-12 text-center">
+                          <p className="text-sm text-zinc-600">No names added yet.</p>
+                        </div>
                       ) : (
                         <div className="space-y-1 max-h-[260px] overflow-y-auto custom-scrollbar">
-                          {secureEntries.map(entry => (
-                            <div key={entry.id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800/60">
+                          {importantEntries.map(entry => (
+                            <div key={entry.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-zinc-900/30 border border-zinc-800/40">
                               <div className="min-w-0">
                                 <p className="text-sm text-zinc-200 truncate">{entry.name}</p>
                                 <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{entry.source}</p>
