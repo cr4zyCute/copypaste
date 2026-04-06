@@ -286,6 +286,13 @@ export const SimpleList: React.FC<SimpleListProps> = ({
     return Math.round(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  const getFollowUpFilterDate = (offsetDays: number) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + offsetDays);
+    return date.toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
+  };
+
   const getReminderStatus = (entry: NameEntry) => {
     if (!entry.connectedAt) return { text: '', color: '', isDue: false };
     if (entry.followUpDone) return { text: 'Done', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', isDue: false };
@@ -646,53 +653,58 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                 <div className="flex items-center gap-1 bg-zinc-950/50 p-1 rounded-lg border border-zinc-800/50 overflow-x-auto no-scrollbar">
                   <button
                     onClick={() => setFollowUpFilter('all')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap min-w-[76px] ${
                       followUpFilter === 'all' 
                         ? 'bg-zinc-800 text-zinc-200 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
-                    All
+                    <span className="block text-[10px] font-bold uppercase tracking-wider leading-none">All</span>
+                    <span className="block text-[9px] mt-1 opacity-80 leading-none">{getFollowUpFilterDate(0)}</span>
                   </button>
                   <button
                     onClick={() => setFollowUpFilter('3')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap min-w-[76px] ${
                       followUpFilter === '3' 
                         ? 'bg-zinc-800 text-blue-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
-                    3 Days
+                    <span className="block text-[10px] font-bold uppercase tracking-wider leading-none">3 Days</span>
+                    <span className="block text-[9px] mt-1 opacity-80 leading-none">{getFollowUpFilterDate(3)}</span>
                   </button>
                   <button
                     onClick={() => setFollowUpFilter('2')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap min-w-[76px] ${
                       followUpFilter === '2' 
                         ? 'bg-zinc-800 text-amber-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
-                    2 Days
+                    <span className="block text-[10px] font-bold uppercase tracking-wider leading-none">2 Days</span>
+                    <span className="block text-[9px] mt-1 opacity-80 leading-none">{getFollowUpFilterDate(2)}</span>
                   </button>
                   <button
                     onClick={() => setFollowUpFilter('1')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap min-w-[76px] ${
                       followUpFilter === '1' 
                         ? 'bg-zinc-800 text-orange-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
-                    1 Day
+                    <span className="block text-[10px] font-bold uppercase tracking-wider leading-none">1 Day</span>
+                    <span className="block text-[9px] mt-1 opacity-80 leading-none">{getFollowUpFilterDate(1)}</span>
                   </button>
                   <button
                     onClick={() => setFollowUpFilter('done')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap min-w-[76px] ${
                       followUpFilter === 'done' 
                         ? 'bg-zinc-800 text-emerald-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
-                    Done
+                    <span className="block text-[10px] font-bold uppercase tracking-wider leading-none">Done</span>
+                    <span className="block text-[9px] mt-1 opacity-80 leading-none">{getFollowUpFilterDate(0)}</span>
                   </button>
                 </div>
               )}
