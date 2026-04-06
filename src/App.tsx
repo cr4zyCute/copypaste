@@ -148,12 +148,6 @@ function App() {
   }, [isAuthenticated]);
 
   const importantCandidates = useMemo<ImportantCandidate[]>(() => {
-    const quickConnectRaw = localStorage.getItem('quick_connect_names');
-    const promptRaw = localStorage.getItem('linkedin_strategist_prospects');
-
-    const quickConnectEntries = quickConnectRaw ? JSON.parse(quickConnectRaw) : [];
-    const promptEntries = promptRaw ? JSON.parse(promptRaw) : [];
-
     const allCandidates: ImportantCandidate[] = [];
 
     names.forEach(entry => {
@@ -173,29 +167,6 @@ function App() {
         source: 'Manual List 2'
       });
     });
-
-    if (Array.isArray(quickConnectEntries)) {
-      quickConnectEntries.forEach((entry: { id?: string; name?: string }) => {
-        if (!entry?.name) return;
-        allCandidates.push({
-          id: `quick-${entry.id || entry.name}`,
-          name: entry.name,
-          source: 'Quick Connect'
-        });
-      });
-    }
-
-    if (Array.isArray(promptEntries)) {
-      promptEntries.forEach((entry: { id?: string; name?: string; link?: string }) => {
-        if (!entry?.name) return;
-        allCandidates.push({
-          id: `prompt-${entry.id || entry.name}`,
-          name: entry.name,
-          link: entry.link,
-          source: 'Copy Prompt'
-        });
-      });
-    }
 
     const deduped = new Map<string, ImportantCandidate>();
     allCandidates.forEach(candidate => {
@@ -1199,7 +1170,7 @@ function App() {
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <h2 className="text-xl font-semibold text-zinc-100">Important List</h2>
-                        <p className="text-sm text-zinc-500">Add names from every list. Once added, the Add button is removed.</p>
+                        <p className="text-sm text-zinc-500">Add names from Manual List 1 and Manual List 2. Added names are stored below.</p>
                       </div>
                       <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
                         {importantEntries.length} ADDED
@@ -1215,15 +1186,12 @@ function App() {
                             const key = `${candidate.name.trim().toLowerCase()}::${candidate.source}`;
                             const isAdded = importantEntryKeySet.has(key);
                             return (
-                              <div key={candidate.id} className="flex items-center justify-between p-3 rounded-lg border border-zinc-800/40 bg-zinc-900/20 hover:bg-zinc-900/40 transition-colors">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium text-zinc-200 truncate">{candidate.name}</p>
-                                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">{candidate.source}</p>
-                                </div>
+                              <div key={candidate.id} className="flex items-center gap-3 p-3 rounded-lg border border-zinc-800/40 bg-zinc-900/20 hover:bg-zinc-900/40 transition-colors">
                                 {isAdded ? (
                                   <button
                                     disabled
                                     className="shrink-0 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 cursor-not-allowed"
+                                    title="Already added"
                                   >
                                     <Check className="w-4 h-4" />
                                   </button>
@@ -1236,6 +1204,10 @@ function App() {
                                     <Plus className="w-4 h-4" />
                                   </button>
                                 )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-zinc-200 truncate">{candidate.name}</p>
+                                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">{candidate.source}</p>
+                                </div>
                               </div>
                             );
                           })}
