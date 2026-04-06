@@ -59,6 +59,17 @@ const navItems = [
   { id: 'link-format', label: 'Post Links', icon: LinkIcon },
 ] as const;
 
+type TabId = (typeof navItems)[number]['id'];
+
+const isTabId = (value: string): value is TabId => {
+  return navItems.some(item => item.id === value);
+};
+
+const getInitialTab = (): TabId => {
+  const hashTab = window.location.hash.replace('#', '');
+  return isTabId(hashTab) ? hashTab : 'excel';
+};
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem(AUTH_KEY) === 'true';
@@ -97,11 +108,30 @@ function App() {
 
   const [data, setData] = useState<Row[]>([]);
   const [fileName, setFileName] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'excel' | 'cleaner' | 'messenger' | 'eod' | 'prompt' | 'list' | 'link-format'>('excel');
+  const [activeTab, setActiveTab] = useState<TabId>(() => getInitialTab());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    const targetHash = `#${activeTab}`;
+    if (window.location.hash !== targetHash) {
+      window.history.replaceState(null, '', targetHash);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hashTab = window.location.hash.replace('#', '');
+      if (isTabId(hashTab)) {
+        setActiveTab(hashTab);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Follow-up logic shared with App
   const getReminderStatus = (entry: NameEntry) => {
@@ -192,6 +222,28 @@ function App() {
       localStorage.setItem(key, JSON.stringify(names2));
     }
   }, [names2, isAuthenticated]);
+
+  useEffect(() => {
+    const keySet = new Set([
+      AUTH_KEY,
+      SIMPLE_LIST_STORAGE_KEY,
+      SIMPLE_LIST_2_STORAGE_KEY,
+      `guest_${SIMPLE_LIST_STORAGE_KEY}`,
+      `guest_${SIMPLE_LIST_2_STORAGE_KEY}`
+    ]);
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || !keySet.has(event.key)) return;
+
+      const authenticated = localStorage.getItem(AUTH_KEY) === 'true';
+      setIsAuthenticated(authenticated);
+      setNames(loadNamesFromStorage(getStorageKey(SIMPLE_LIST_STORAGE_KEY, authenticated)));
+      setNames2(loadNamesFromStorage(getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, authenticated)));
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   // Function to refresh names from localStorage (for MessageCleaner sync)
   const refreshNames = () => {
@@ -525,8 +577,9 @@ function App() {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
-                <button
+                <a
                   key={item.id}
+                  href={`#${item.id}`}
                   onClick={() => setActiveTab(item.id)}
                   className={`
                     w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
@@ -544,7 +597,7 @@ function App() {
                       {dueFollowUpsCount}
                     </span>
                   )}
-                </button>
+                </a>
               );
             })}
           </nav>
