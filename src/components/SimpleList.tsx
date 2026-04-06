@@ -292,6 +292,14 @@ export const SimpleList: React.FC<SimpleListProps> = ({
     return date.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
   };
 
+  const formatGroupDate = (addedAt?: string) => {
+    if (!addedAt) return '';
+    const date = new Date(`${addedAt}T00:00:00`);
+    return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }).replace(',', '');
+  };
+
+  const list1Ids = React.useMemo(() => new Set(names.map(n => n.id)), [names]);
+
   const getReminderStatus = (entry: NameEntry) => {
     if (!entry.connectedAt) return { text: '', color: '', isDue: false };
     if (entry.followUpDone) return { text: 'Done', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', isDue: false };
@@ -322,7 +330,10 @@ export const SimpleList: React.FC<SimpleListProps> = ({
           const diffDays = getDiffDays(n.connectedAt!);
           return diffDays === parseInt(followUpFilter);
         })
-        .sort((a, b) => (a.connectedAt || 0) - (b.connectedAt || 0));
+        .sort((a, b) => {
+          if (a.addedAt !== b.addedAt) return b.addedAt.localeCompare(a.addedAt);
+          return (a.connectedAt || 0) - (b.connectedAt || 0);
+        });
     }
 
     return currentNames.filter(n => {
@@ -717,15 +728,23 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                   </motion.div>
                 ) : (
                   <div className="space-y-1">
-                    {filteredNames.map((entry) => (
-                      
-                      <motion.div
-                        key={entry.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: entry.sent && activeSubTab !== 'reminders' ? 0.85 : 1, x: 0 }}
-                        exit={{ opacity: 0, x: 10 }}
-                        className={`group flex items-center justify-between p-3 rounded-lg hover:bg-zinc-900/80 transition-all border border-transparent hover:border-zinc-800 ${entry.sent && activeSubTab !== 'reminders' ? 'bg-zinc-900/10' : ''}`}
-                      >
+                    {filteredNames.map((entry, index, arr) => (
+                      <React.Fragment key={entry.id}>
+                        {activeSubTab === 'reminders' && (index === 0 || arr[index - 1].addedAt !== entry.addedAt) && (
+                          <div className="py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-px bg-zinc-800 flex-1" />
+                              <span className="text-zinc-300 text-sm font-semibold">{formatGroupDate(entry.addedAt)}</span>
+                              <div className="h-px bg-zinc-800 flex-1" />
+                            </div>
+                          </div>
+                        )}
+                        <motion.div
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: entry.sent && activeSubTab !== 'reminders' ? 0.85 : 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          className={`group flex items-center justify-between p-3 rounded-lg hover:bg-zinc-900/80 transition-all border border-transparent hover:border-zinc-800 ${entry.sent && activeSubTab !== 'reminders' ? 'bg-zinc-900/10' : ''}`}
+                        >
                         <div className="flex items-center gap-3">
                           {activeSubTab === 'reminders' ? (
                             <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs font-bold border border-blue-500/20">
@@ -795,7 +814,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                             )}
                             {activeSubTab === 'reminders' && (
                               <span className="text-[10px] text-zinc-600 block mt-0.5">
-                                Added: {formatAddedDate(entry.addedAt)}
+                                {list1Ids.has(entry.id) ? 'Manual List 1' : 'Manual List 2'} • Added: {formatAddedDate(entry.addedAt)}
                               </span>
                             )}
                           </div>
@@ -933,7 +952,8 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                             </button>
                           </div>
                         )}
-                      </motion.div>
+                        </motion.div>
+                      </React.Fragment>
                     ))}
                   </div>
                 )}
