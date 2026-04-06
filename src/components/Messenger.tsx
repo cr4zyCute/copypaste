@@ -96,6 +96,18 @@ export const Messenger: React.FC = () => {
     setShowClearAllModal(false);
   };
 
+  const getRecentDateKey = (timestamp: number) => {
+    return new Date(timestamp).toISOString().split('T')[0];
+  };
+
+  const formatRecentGroupDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString(undefined, {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    }).replace(',', '');
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Left Side: Input & Stats */}
@@ -240,10 +252,21 @@ export const Messenger: React.FC = () => {
               Recent Names
             </h3>
             <div className="space-y-1 max-h-[300px] overflow-y-auto custom-scrollbar">
-              {names.map((n) => (
-                <div key={n.id} className="px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 truncate">
-                  {n.name}
-                </div>
+              {names.map((n, index) => (
+                <React.Fragment key={n.id}>
+                  {(index === 0 || getRecentDateKey(names[index - 1].timestamp) !== getRecentDateKey(n.timestamp)) && (
+                    <div className="py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-px bg-zinc-800/80 flex-1" />
+                        <span className="text-[11px] font-semibold text-zinc-500">{formatRecentGroupDate(n.timestamp)}</span>
+                        <div className="h-px bg-zinc-800/80 flex-1" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 truncate">
+                    {n.name}
+                  </div>
+                </React.Fragment>
               ))}
             </div>
           </motion.div>
