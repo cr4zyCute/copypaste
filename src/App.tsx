@@ -231,6 +231,10 @@ function App() {
     setImportantEntries(prev => [newEntry, ...prev]);
   };
 
+  const handleRemoveImportantEntry = (id: string) => {
+    setImportantEntries(prev => prev.filter(entry => entry.id !== id));
+  };
+
   // Follow-up logic shared with App
   const getReminderStatus = (entry: NameEntry) => {
     if (!entry.connectedAt) return { text: '', color: '', isDue: false };
@@ -1182,7 +1186,6 @@ function App() {
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <h2 className="text-xl font-semibold text-zinc-100">Important List</h2>
-                        <p className="text-sm text-zinc-500">Add names from Manual List 1 and Manual List 2. Added names are stored below.</p>
                       </div>
                       <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
                         {importantEntries.length} ADDED
@@ -1251,16 +1254,24 @@ function App() {
                                 <p className="text-sm text-zinc-200 truncate">{entry.name}</p>
                                 <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{entry.source}</p>
                               </div>
-                              {entry.link && (
-                                <a
-                                  href={entry.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+                              <div className="flex items-center gap-2 shrink-0">
+                                {entry.link && (
+                                  <a
+                                    href={entry.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+                                  >
+                                    Open
+                                  </a>
+                                )}
+                                <button
+                                  onClick={() => handleRemoveImportantEntry(entry.id)}
+                                  className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400"
                                 >
-                                  Open
-                                </a>
-                              )}
+                                  Remove
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
