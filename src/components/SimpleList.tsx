@@ -21,9 +21,18 @@ interface SimpleListProps {
   setNames: React.Dispatch<React.SetStateAction<NameEntry[]>>;
   names2: NameEntry[];
   setNames2: React.Dispatch<React.SetStateAction<NameEntry[]>>;
+  onAddToImportantList: (entry: NameEntry, source: 'Manual List 1' | 'Manual List 2') => void;
+  isInImportantList: (entry: NameEntry, source: 'Manual List 1' | 'Manual List 2') => boolean;
 }
 
-export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2, setNames2 }) => {
+export const SimpleList: React.FC<SimpleListProps> = ({
+  names,
+  setNames,
+  names2,
+  setNames2,
+  onAddToImportantList,
+  isInImportantList
+}) => {
   const [activeSubTab, setActiveSubTab] = useState<'list1' | 'list2' | 'reminders'>('list1');
   const [nameInput, setNameInput] = useState('');
   const [jobPositionInput, setJobPositionInput] = useState('');
@@ -703,6 +712,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
                 ) : (
                   <div className="space-y-1">
                     {filteredNames.map((entry) => (
+                      
                       <motion.div
                         key={entry.id}
                         initial={{ opacity: 0, x: -10 }}
@@ -711,9 +721,32 @@ export const SimpleList: React.FC<SimpleListProps> = ({ names, setNames, names2,
                         className={`group flex items-center justify-between p-3 rounded-lg hover:bg-zinc-900/80 transition-all border border-transparent hover:border-zinc-800 ${entry.sent && activeSubTab !== 'reminders' ? 'bg-zinc-900/10' : ''}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs font-bold border border-blue-500/20">
-                            {entry.name.charAt(0).toUpperCase()}
-                          </div>
+                          {activeSubTab === 'reminders' ? (
+                            <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs font-bold border border-blue-500/20">
+                              {entry.name.charAt(0).toUpperCase()}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const source = activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2';
+                                onAddToImportantList(entry, source);
+                              }}
+                              disabled={isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2')}
+                              className={`relative w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${
+                                isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2')
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 cursor-not-allowed'
+                                  : 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-400/40'
+                              }`}
+                              title={isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2') ? 'Already in Important List' : 'Add to Important List'}
+                            >
+                              {entry.name.charAt(0).toUpperCase()}
+                              {isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2') && (
+                                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border border-zinc-900 flex items-center justify-center">
+                                  <Check className="w-2.5 h-2.5 text-white" />
+                                </span>
+                              )}
+                            </button>
+                          )}
                           <div>
                             <div className="flex items-center gap-2">
                               {entry.link ? (

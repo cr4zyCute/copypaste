@@ -1154,7 +1154,19 @@ function App() {
                     names={names} 
                     setNames={setNames} 
                     names2={names2} 
-                    setNames2={setNames2} 
+                    setNames2={setNames2}
+                    onAddToImportantList={(entry, source) => {
+                      const sourcePrefix = source === 'Manual List 1' ? 'manual1' : 'manual2';
+                      handleAddToImportantList({
+                        id: `${sourcePrefix}-${entry.id}`,
+                        name: entry.name,
+                        link: entry.link,
+                        source
+                      });
+                    }}
+                    isInImportantList={(entry, source) => {
+                      return importantEntryKeySet.has(`${entry.name.trim().toLowerCase()}::${source}`);
+                    }}
                   />
                 </motion.div>
               ) : activeTab === 'important-list' ? (
