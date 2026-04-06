@@ -108,6 +108,15 @@ export const Messenger: React.FC = () => {
     }).replace(',', '');
   };
 
+  const recentDateCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    names.forEach((n) => {
+      const key = getRecentDateKey(n.timestamp);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [names]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Left Side: Input & Stats */}
@@ -258,7 +267,12 @@ export const Messenger: React.FC = () => {
                     <div className="py-2">
                       <div className="flex items-center gap-2">
                         <div className="h-px bg-zinc-800/80 flex-1" />
-                        <span className="text-[11px] font-semibold text-zinc-500">{formatRecentGroupDate(n.timestamp)}</span>
+                        <span className="text-[11px] font-semibold text-zinc-500">
+                          {formatRecentGroupDate(n.timestamp)}
+                          <span className="ml-2 text-zinc-600 font-medium">
+                            ({recentDateCounts[getRecentDateKey(n.timestamp)] || 0})
+                          </span>
+                        </span>
                         <div className="h-px bg-zinc-800/80 flex-1" />
                       </div>
                     </div>

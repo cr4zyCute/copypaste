@@ -373,7 +373,28 @@ export const SimpleList: React.FC<SimpleListProps> = ({
 
       return matchesSearch && matchesDate && matchesStatus;
     });
-  }, [names, names2, currentNames, searchQuery, selectedDate, statusFilter, activeSubTab]);
+  }, [names, names2, currentNames, searchQuery, selectedDate, statusFilter, activeSubTab, followUpFilter]);
+
+  const reminderDateCounts = React.useMemo(() => {
+    if (activeSubTab !== 'reminders') return {};
+    const counts: Record<string, number> = {};
+    filteredNames.forEach(n => {
+      const key = followUpFilter === 'done' && n.doneAt
+        ? new Date(n.doneAt).toISOString().split('T')[0]
+        : n.addedAt;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [filteredNames, activeSubTab, followUpFilter]);
+
+  const manualDateCounts = React.useMemo(() => {
+    if (activeSubTab === 'reminders' || selectedDate !== 'all') return {};
+    const counts: Record<string, number> = {};
+    filteredNames.forEach(n => {
+      counts[n.addedAt] = (counts[n.addedAt] || 0) + 1;
+    });
+    return counts;
+  }, [filteredNames, activeSubTab, selectedDate]);
 
   return (
     <motion.div
@@ -765,6 +786,23 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                               <div className="h-px bg-zinc-800 flex-1" />
                               <span className="text-zinc-300 text-sm font-semibold">
                                 {followUpFilter === 'done' ? formatDoneGroupDate(entry.doneAt) : formatGroupDate(entry.addedAt)}
+                                <span className="ml-2 text-zinc-500 font-medium">
+                                  ({reminderDateCounts[followUpFilter === 'done' && entry.doneAt ? new Date(entry.doneAt).toISOString().split('T')[0] : entry.addedAt] || 0})
+                                </span>
+                              </span>
+                              <div className="h-px bg-zinc-800 flex-1" />
+                            </div>
+                          </div>
+                        )}
+                        {activeSubTab !== 'reminders' && selectedDate === 'all' && (index === 0 || arr[index - 1].addedAt !== entry.addedAt) && (
+                          <div className="py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-px bg-zinc-800 flex-1" />
+                              <span className="text-zinc-300 text-sm font-semibold">
+                                {formatGroupDate(entry.addedAt)}
+                                <span className="ml-2 text-zinc-500 font-medium">
+                                  ({manualDateCounts[entry.addedAt] || 0})
+                                </span>
                               </span>
                               <div className="h-px bg-zinc-800 flex-1" />
                             </div>
