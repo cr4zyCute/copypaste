@@ -57,6 +57,7 @@ const navItems = [
   { id: 'prompt', label: 'Copy Prompt', icon: FileText },
   { id: 'list', label: 'Simple List', icon: ListTodo },
   { id: 'link-format', label: 'Post Links', icon: LinkIcon },
+  { id: 'secure-access', label: 'Secure Access', icon: ShieldCheck },
 ] as const;
 
 type TabId = (typeof navItems)[number]['id'];
@@ -69,6 +70,24 @@ const getInitialTab = (): TabId => {
   const hashTab = window.location.hash.replace('#', '');
   return isTabId(hashTab) ? hashTab : 'excel';
 };
+
+interface SecureEntry {
+  id: string;
+  name: string;
+  source: string;
+  link?: string;
+  timestamp: number;
+  addedAt: string;
+}
+
+interface SecureCandidate {
+  id: string;
+  name: string;
+  source: string;
+  link?: string;
+}
+
+const SECURE_ACCESS_STORAGE_KEY = 'secure_access_added_entries';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -113,6 +132,87 @@ function App() {
   const [filterDirection, setFilterDirection] = useState<'up' | 'down'>('down');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [secureEntries, setSecureEntries] = useState<SecureEntry[]>(() => {
+    const saved = localStorage.getItem(SECURE_ACCESS_STORAGE_KEY);
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const visibleNavItems = useMemo(() => {
+    return isAuthenticated ? navItems : navItems.filter(item => item.id !== 'secure-access');
+  }, [isAuthenticated]);
+
+  const secureCandidates = useMemo<SecureCandidate[]>(() => {
+    const quickConnectRaw = localStorage.getItem('quick_connect_names');
+    const promptRaw = localStorage.getItem('linkedin_strategist_prospects');
+
+    const quickConnectEntries = quickConnectRaw ? JSON.parse(quickConnectRaw) : [];
+    const promptEntries = promptRaw ? JSON.parse(promptRaw) : [];
+
+    const allCandidates: SecureCandidate[] = [];
+
+    names.forEach(entry => {
+      allCandidates.push({
+        id: `manual1-${entry.id}`,
+        name: entry.name,
+        link: entry.link,
+        source: 'Manual List 1'
+      });
+    });
+
+    names2.forEach(entry => {
+      allCandidates.push({
+        id: `manual2-${entry.id}`,
+        name: entry.name,
+        link: entry.link,
+        source: 'Manual List 2'
+      });
+    });
+
+    if (Array.isArray(quickConnectEntries)) {
+      quickConnectEntries.forEach((entry: { id?: string; name?: string }) => {
+        if (!entry?.name) return;
+        allCandidates.push({
+          id: `quick-${entry.id || entry.name}`,
+          name: entry.name,
+          source: 'Quick Connect'
+        });
+      });
+    }
+
+    if (Array.isArray(promptEntries)) {
+      promptEntries.forEach((entry: { id?: string; name?: string; link?: string }) => {
+        if (!entry?.name) return;
+        allCandidates.push({
+          id: `prompt-${entry.id || entry.name}`,
+          name: entry.name,
+          link: entry.link,
+          source: 'Copy Prompt'
+        });
+      });
+    }
+
+    const deduped = new Map<string, SecureCandidate>();
+    allCandidates.forEach(candidate => {
+      const key = `${candidate.name.trim().toLowerCase()}::${candidate.source}`;
+      if (!deduped.has(key)) deduped.set(key, candidate);
+    });
+
+    return Array.from(deduped.values());
+  }, [names, names2]);
+
+  const secureEntryKeySet = useMemo(() => {
+    const set = new Set<string>();
+    secureEntries.forEach(entry => {
+      set.add(`${entry.name.trim().toLowerCase()}::${entry.source}`);
+    });
+    return set;
+  }, [secureEntries]);
 
   useEffect(() => {
     const targetHash = `#${activeTab}`;
@@ -124,14 +224,41 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hashTab = window.location.hash.replace('#', '');
-      if (isTabId(hashTab)) {
+      if (isTabId(hashTab) && (isAuthenticated || hashTab !== 'secure-access')) {
         setActiveTab(hashTab);
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated && activeTab === 'secure-access') {
+      setActiveTab('excel');
+    }
+  }, [isAuthenticated, activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem(SECURE_ACCESS_STORAGE_KEY, JSON.stringify(secureEntries));
+  }, [secureEntries]);
+
+  const handleAddToSecureAccess = (candidate: SecureCandidate) => {
+    const key = `${candidate.name.trim().toLowerCase()}::${candidate.source}`;
+    if (secureEntryKeySet.has(key)) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const newEntry: SecureEntry = {
+      id: Math.random().toString(36).substring(2, 9),
+      name: candidate.name,
+      source: candidate.source,
+      link: candidate.link,
+      timestamp: Date.now(),
+      addedAt: today
+    };
+
+    setSecureEntries(prev => [newEntry, ...prev]);
+  };
 
   // Follow-up logic shared with App
   const getReminderStatus = (entry: NameEntry) => {
@@ -573,7 +700,7 @@ function App() {
           </div>
 
           <nav className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
@@ -1058,6 +1185,99 @@ function App() {
                     names2={names2} 
                     setNames2={setNames2} 
                   />
+                </motion.div>
+              ) : activeTab === 'secure-access' ? (
+                <motion.div
+                  key="secure-access"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="max-w-4xl mx-auto"
+                >
+                  <div className="bg-zinc-900/30 border border-zinc-800 rounded-2xl p-6 space-y-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-xl font-semibold text-zinc-100">Tools Secure Access</h2>
+                        <p className="text-sm text-zinc-500">Add names from every list. Once added, the Add button is removed.</p>
+                      </div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                        {secureEntries.length} Added
+                      </div>
+                    </div>
+
+                    <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-3 max-h-[340px] overflow-y-auto custom-scrollbar">
+                      {secureCandidates.length === 0 ? (
+                        <div className="py-16 text-center text-zinc-600 text-sm">No names found in your lists yet.</div>
+                      ) : (
+                        <div className="space-y-1">
+                          {secureCandidates.map(candidate => {
+                            const key = `${candidate.name.trim().toLowerCase()}::${candidate.source}`;
+                            const isAdded = secureEntryKeySet.has(key);
+                            return (
+                              <div key={candidate.id} className="flex items-center justify-between p-2.5 rounded-lg border border-zinc-800/60 bg-zinc-900/40">
+                                <div className="min-w-0">
+                                  <p className="text-sm text-zinc-200 truncate">{candidate.name}</p>
+                                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{candidate.source}</p>
+                                </div>
+                                {isAdded ? (
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1">
+                                    <Check className="w-3 h-3" />
+                                    Added
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleAddToSecureAccess(candidate)}
+                                    className="text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-all"
+                                  >
+                                    Add
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-zinc-200">Added In Secure Access</h3>
+                        {secureEntries.length > 0 && (
+                          <button
+                            onClick={() => setSecureEntries([])}
+                            className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-400"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      {secureEntries.length === 0 ? (
+                        <p className="text-sm text-zinc-600 py-8 text-center">No names added yet.</p>
+                      ) : (
+                        <div className="space-y-1 max-h-[260px] overflow-y-auto custom-scrollbar">
+                          {secureEntries.map(entry => (
+                            <div key={entry.id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800/60">
+                              <div className="min-w-0">
+                                <p className="text-sm text-zinc-200 truncate">{entry.name}</p>
+                                <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{entry.source}</p>
+                              </div>
+                              {entry.link && (
+                                <a
+                                  href={entry.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+                                >
+                                  Open
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div
