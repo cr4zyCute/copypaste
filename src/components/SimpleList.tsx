@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Bell, ExternalLink, Settings, Edit2 } from 'lucide-react';
+import { UserPlus, Trash2, User, Search, X, Calendar, Copy, Check, Briefcase, MessageCircle, Link as LinkIcon, UserCircle, Bell, ExternalLink, Settings, Edit2, AlertTriangle } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 export interface NameEntry {
@@ -53,6 +53,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; list: string; date: string } | null>(null);
   const [pendingEntry, setPendingEntry] = useState<NameEntry | null>(null);
+  const [realtimeDuplicate, setRealtimeDuplicate] = useState<{ list: string; date: string } | null>(null);
 
   const [message1Template, setMessage1Template] = useState(() => 
     localStorage.getItem('manual_list_msg1') || 
@@ -109,6 +110,39 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   const [namesCopied, setNamesCopied] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Real-time duplicate check
+  useEffect(() => {
+    const name = nameInput.trim();
+    if (!name || name.length < 2) {
+      setRealtimeDuplicate(null);
+      return;
+    }
+
+    // Clean name for comparison (same logic as handleAddName)
+    let cleanName = name;
+    const urlMatch = name.match(/((?:https?:\/\/|www\.)[^\s]+)/);
+    if (urlMatch) cleanName = name.replace(urlMatch[0], '').trim();
+    cleanName = cleanName.replace(/^[\s\-–—|]+|[\s\-–—|]+$/g, '').trim();
+
+    if (!cleanName) {
+      setRealtimeDuplicate(null);
+      return;
+    }
+
+    const dup1 = names.find(n => n.name.toLowerCase() === cleanName.toLowerCase());
+    const dup2 = names2.find(n => n.name.toLowerCase() === cleanName.toLowerCase());
+
+    if (dup1 || dup2) {
+      const dup = dup1 || dup2!;
+      setRealtimeDuplicate({
+        list: dup1 ? "Manual List 1" : "Manual List 2",
+        date: dup.addedAt
+      });
+    } else {
+      setRealtimeDuplicate(null);
+    }
+  }, [nameInput, names, names2]);
 
   const handleAddName = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -563,13 +597,30 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                       }
                     }}
                     placeholder={activeSubTab === 'list1' ? "Name and Position (e.g., Linkon - VP of Sales)..." : "Name and Position..."}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-10 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                    className={`w-full bg-zinc-950 border rounded-xl pl-10 pr-10 py-3 text-sm transition-all focus:outline-none focus:ring-2 ${
+                      realtimeDuplicate 
+                        ? 'border-amber-500/50 text-amber-200 focus:ring-amber-500/30' 
+                        : 'border-zinc-800 text-zinc-200 placeholder-zinc-600 focus:ring-blue-500/50'
+                    }`}
                   />
                   {pastedLink && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" title="Link captured">
                       <LinkIcon className="w-3.5 h-3.5" />
                     </div>
                   )}
+                  <AnimatePresence>
+                    {realtimeDuplicate && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute left-0 right-0 top-full mt-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-400 font-medium z-10 backdrop-blur-sm flex items-center gap-2"
+                      >
+                        <AlertTriangle className="w-3 h-3 shrink-0" />
+                        <span>Found in {realtimeDuplicate.list} ({realtimeDuplicate.date})</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
                 {activeSubTab === 'list2' && (
                   <div className="relative flex-[2]">

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, Trash2, Plus, User, Settings, Edit2, X } from 'lucide-react';
+import { Copy, Check, Trash2, Plus, User, Settings, Edit2, X, AlertTriangle } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface NameEntry {
@@ -26,6 +26,7 @@ export const Messenger: React.FC = () => {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateName, setDuplicateName] = useState('');
   const [pendingEntry, setPendingEntry] = useState<NameEntry | null>(null);
+  const [isRealtimeDuplicate, setIsRealtimeDuplicate] = useState(false);
   
   const [messageTemplate, setMessageTemplate] = useState(() => 
     localStorage.getItem('quick_connect_msg') || 
@@ -46,6 +47,21 @@ export const Messenger: React.FC = () => {
   };
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Real-time duplicate check
+  useEffect(() => {
+    const input = nameInput.trim();
+    if (!input || input.length < 2) {
+      setIsRealtimeDuplicate(false);
+      return;
+    }
+
+    const firstName = input.split(/\s+/)[0];
+    const formattedName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+    
+    const duplicate = names.some(n => n.name.toLowerCase() === formattedName.toLowerCase());
+    setIsRealtimeDuplicate(duplicate);
+  }, [nameInput, names]);
 
   // Update local storage whenever names change
   useEffect(() => {
@@ -181,15 +197,35 @@ export const Messenger: React.FC = () => {
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
                 placeholder="Paste full name here..."
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                className={`w-full bg-zinc-950 border rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 transition-all ${
+                  isRealtimeDuplicate 
+                    ? 'border-amber-500/50 focus:ring-amber-500/30 text-amber-200' 
+                    : 'border-zinc-800 focus:ring-blue-500/50 focus:border-blue-500/50'
+                }`}
               />
               <button
                 type="submit"
                 disabled={!nameInput.trim()}
-                className="absolute right-2 top-2 p-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 rounded-lg transition-colors"
+                className={`absolute right-2 top-2 p-1.5 rounded-lg transition-colors ${
+                  isRealtimeDuplicate ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'
+                } disabled:bg-zinc-800 disabled:text-zinc-600`}
               >
                 <Plus className="w-5 h-5" />
               </button>
+              
+              <AnimatePresence>
+                {isRealtimeDuplicate && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute left-0 right-0 top-full mt-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-400 font-medium z-10 backdrop-blur-sm flex items-center gap-2"
+                  >
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    <span>This name is already in your list</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             <p className="text-xs text-zinc-500 px-1">
               Press Enter to add to the list
