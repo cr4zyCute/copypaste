@@ -260,7 +260,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   const handleCopyNameOnly = async (entry: NameEntry) => {
     // Extract just the name part by splitting on common separators
     let nameOnly = entry.name;
-    const smartMatch = entry.name.match(/^(.+?)\s*[\-–—|]\s*(.+)$/);
+    const smartMatch = entry.name.match(/^(.+?)\s*[-–—|]\s*(.+)$/);
     if (smartMatch) {
       nameOnly = smartMatch[1].trim();
     } else if (entry.name.includes(',')) {
@@ -326,9 +326,14 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   };
 
   const handleCopyNames = async () => {
-    if (currentNames.length === 0) return;
+    const namesForCopy = selectedDate === 'all'
+      ? currentNames
+      : currentNames.filter(n => n.addedAt === selectedDate);
+
+    if (namesForCopy.length === 0) return;
+
     try {
-      const allNames = currentNames.map(n => n.name);
+      const allNames = namesForCopy.map(n => n.name);
       await navigator.clipboard.writeText(allNames.join('\n'));
       setNamesCopied(true);
       setTimeout(() => setNamesCopied(false), 2000);

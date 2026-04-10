@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, Plus, Trash2, Calendar, ClipboardList } from 'lucide-react';
+import { Copy, Check, Plus, Trash2, Calendar, ClipboardList, GripVertical } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface EODTask {
@@ -48,6 +48,8 @@ export const EODGenerator: React.FC = () => {
   const [showClearAllModal, setShowClearAllModal] = useState(false);
   const [showDeleteTaskModal, setShowDeleteTaskModal] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
 
   const nextId = () => {
     return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
@@ -122,6 +124,43 @@ export const EODGenerator: React.FC = () => {
 
   const handleUpdateTask = (id: string, content: string) => {
     setTasks(tasks.map(t => t.id === id ? { ...t, content } : t));
+  };
+
+  const handleDragStart = (id: string) => {
+    setDraggedTaskId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (draggedTaskId === id) return;
+    setDragOverTaskId(id);
+  };
+
+  const handleDrop = (targetId: string) => {
+    if (!draggedTaskId || draggedTaskId === targetId) {
+      setDraggedTaskId(null);
+      setDragOverTaskId(null);
+      return;
+    }
+
+    setTasks(prev => {
+      const draggedIndex = prev.findIndex(t => t.id === draggedTaskId);
+      const targetIndex = prev.findIndex(t => t.id === targetId);
+      if (draggedIndex < 0 || targetIndex < 0) return prev;
+
+      const updated = [...prev];
+      const [moved] = updated.splice(draggedIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+
+    setDraggedTaskId(null);
+    setDragOverTaskId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTaskId(null);
+    setDragOverTaskId(null);
   };
 
   const generateEOD = () => {
@@ -231,8 +270,28 @@ export const EODGenerator: React.FC = () => {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="group flex gap-2"
+                    draggable
+                    onDragStart={() => handleDragStart(task.id)}
+                    onDragOver={(e) => handleDragOver(e, task.id)}
+                    onDrop={() => handleDrop(task.id)}
+                    onDragEnd={handleDragEnd}
+                    className={`group flex gap-2 rounded-xl transition-all ${
+                      draggedTaskId === task.id
+                        ? 'opacity-50 ring-1 ring-blue-500/40'
+                        : ''
+                    } ${
+                      dragOverTaskId === task.id
+                        ? 'ring-1 ring-amber-500/50 bg-amber-500/5'
+                        : ''
+                    }`}
                   >
+                    <button
+                      type="button"
+                      className="p-2 text-zinc-600 hover:text-zinc-300 cursor-grab active:cursor-grabbing rounded-lg h-fit mt-2"
+                      title="Drag to reorder"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </button>
                     <textarea
                       value={task.content}
                       onChange={(e) => handleUpdateTask(task.id, e.target.value)}
