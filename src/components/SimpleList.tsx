@@ -49,6 +49,11 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
   const [showEditMessagesModal, setShowEditMessagesModal] = useState(false);
 
+  // States for duplicate warning
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; list: string; date: string } | null>(null);
+  const [pendingEntry, setPendingEntry] = useState<NameEntry | null>(null);
+
   const [message1Template, setMessage1Template] = useState(() => 
     localStorage.getItem('manual_list_msg1') || 
     "Hi {{name}}, I work with service businesses like HVAC, plumbing, and facilities teams to smooth out dispatch chaos and after-hours coverage. Always interested in learning how others handle the labor crunch. \n\nHappy to connect."
@@ -129,6 +134,10 @@ export const SimpleList: React.FC<SimpleListProps> = ({
     // Clean up any trailing/leading separators
     name = name.replace(/^[\s\-–—|]+|[\s\-–—|]+$/g, '').trim();
 
+    // DUPLICATE CHECK
+    const duplicateIn1 = names.find(n => n.name.toLowerCase() === name.toLowerCase());
+    const duplicateIn2 = names2.find(n => n.name.toLowerCase() === name.toLowerCase());
+
     const today = new Date().toISOString().split('T')[0];
     const newEntry: NameEntry = {
       id: Math.random().toString(36).substring(2, 9),
@@ -139,12 +148,37 @@ export const SimpleList: React.FC<SimpleListProps> = ({
       addedAt: today,
     };
 
-    setCurrentNames([newEntry, ...currentNames]);
+    if (duplicateIn1 || duplicateIn2) {
+      const dup = duplicateIn1 || duplicateIn2!;
+      setDuplicateInfo({
+        name: dup.name,
+        list: duplicateIn1 ? "Manual List 1" : "Manual List 2",
+        date: dup.addedAt
+      });
+      setPendingEntry(newEntry);
+      setShowDuplicateModal(true);
+      return;
+    }
+
+    addEntry(newEntry);
+  };
+
+  const addEntry = (entry: NameEntry) => {
+    setCurrentNames([entry, ...currentNames]);
     setNameInput('');
     setJobPositionInput('');
     setPastedLink(null);
-    setSelectedDate(today); // Switch to today when adding
+    setSelectedDate(entry.addedAt); // Switch to the entry's date when adding
     inputRef.current?.focus();
+  };
+
+  const confirmDuplicateAdd = () => {
+    if (pendingEntry) {
+      addEntry(pendingEntry);
+      setPendingEntry(null);
+      setDuplicateInfo(null);
+      setShowDuplicateModal(false);
+    }
   };
 
   const updateEntryGlobal = (id: string, updater: (n: NameEntry) => NameEntry) => {
@@ -1045,6 +1079,22 @@ export const SimpleList: React.FC<SimpleListProps> = ({
         onConfirm={confirmDelete}
         title="Delete Entry"
         message="Are you sure you want to remove this entry? This action cannot be undone."
+      />
+
+      {/* Duplicate Warning Modal */}
+      <ConfirmationModal
+        isOpen={showDuplicateModal}
+        onClose={() => {
+          setShowDuplicateModal(false);
+          setPendingEntry(null);
+          setDuplicateInfo(null);
+        }}
+        onConfirm={confirmDuplicateAdd}
+        title="Duplicate Found"
+        message={duplicateInfo ? `"${duplicateInfo.name}" was already added to ${duplicateInfo.list} on ${duplicateInfo.date}.` : ""}
+        confirmText="Add Anyway"
+        cancelText="Cancel"
+        variant="warning"
       />
 
       {/* Edit Messages Modal */}

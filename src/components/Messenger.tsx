@@ -22,6 +22,11 @@ export const Messenger: React.FC = () => {
   const [showClearAllModal, setShowClearAllModal] = useState(false);
   const [showEditMessageModal, setShowEditMessageModal] = useState(false);
   
+  // Duplicate warning states
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateName, setDuplicateName] = useState('');
+  const [pendingEntry, setPendingEntry] = useState<NameEntry | null>(null);
+  
   const [messageTemplate, setMessageTemplate] = useState(() => 
     localStorage.getItem('quick_connect_msg') || 
     "Thanks for connecting, {{name}}. I hope you're having a productive week so far.\nI’m curious—with how hard it is to find reliable admin staff right now, are you handling your after-hours and overflow calls in-house, or is that responsibility falling on your technicians?\nI’d love to get your perspective on how teams your size are adapting to these staffing challenges."
@@ -62,15 +67,38 @@ export const Messenger: React.FC = () => {
     // Capitalize first letter just in case
     const formattedName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 
+    // Check for duplicate
+    const isDuplicate = names.some(n => n.name.toLowerCase() === formattedName.toLowerCase());
+
     const newEntry: NameEntry = {
       id: Math.random().toString(36).substring(2, 9),
       name: formattedName,
       timestamp: Date.now(),
     };
 
-    setNames([newEntry, ...names]);
+    if (isDuplicate) {
+      setDuplicateName(formattedName);
+      setPendingEntry(newEntry);
+      setShowDuplicateModal(true);
+      return;
+    }
+
+    addEntry(newEntry);
+  };
+
+  const addEntry = (entry: NameEntry) => {
+    setNames([entry, ...names]);
     setNameInput('');
     inputRef.current?.focus();
+  };
+
+  const confirmDuplicateAdd = () => {
+    if (pendingEntry) {
+      addEntry(pendingEntry);
+      setPendingEntry(null);
+      setDuplicateName('');
+      setShowDuplicateModal(false);
+    }
   };
 
   const handleCopy = async (id: string, text: string) => {
@@ -184,6 +212,21 @@ export const Messenger: React.FC = () => {
             onConfirm={confirmClearAll}
             title="Clear All Names"
             message="Are you sure you want to clear all names from the list? This action cannot be undone."
+          />
+
+          <ConfirmationModal
+            isOpen={showDuplicateModal}
+            onClose={() => {
+              setShowDuplicateModal(false);
+              setPendingEntry(null);
+              setDuplicateName('');
+            }}
+            onConfirm={confirmDuplicateAdd}
+            title="Duplicate Found"
+            message={`"${duplicateName}" is already in your list. Do you want to add it anyway?`}
+            confirmText="Add Anyway"
+            cancelText="Cancel"
+            variant="warning"
           />
         </motion.div>
 
