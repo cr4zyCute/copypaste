@@ -44,9 +44,6 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   const [copiedNameId, setCopiedNameId] = useState<string | null>(null);
   const [copiedCompanyId, setCopiedCompanyId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'viewed' | 'connected' | 'none'>('all');
-  const [showViewedNoteModal, setShowViewedNoteModal] = useState(false);
-  const [viewedNoteEntry, setViewedNoteEntry] = useState<NameEntry | null>(null);
-  const [viewedNoteContent, setViewedNoteContent] = useState('');
   const [showDailyNoteModal, setShowDailyNoteModal] = useState(false);
   const [dailyNoteDraft, setDailyNoteDraft] = useState('');
   const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'overdue' | 'done'>('all');
@@ -496,22 +493,6 @@ export const SimpleList: React.FC<SimpleListProps> = ({
     });
     return counts;
   }, [filteredNames, activeSubTab, selectedDate]);
-
-  const statusCounts = React.useMemo(() => {
-    if (activeSubTab !== 'list2') return { all: 0, sent: 0, viewed: 0, connected: 0, none: 0 };
-    
-    const dateFiltered = selectedDate === 'all' 
-      ? names2.filter(n => n.name.toLowerCase().includes(searchQuery.toLowerCase()))
-      : names2.filter(n => n.addedAt === selectedDate && n.name.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const all = dateFiltered.length;
-    const sent = dateFiltered.filter(n => n.sent).length;
-    const viewed = dateFiltered.filter(n => isInImportantList(n, 'Manual List 2')).length;
-    const connected = dateFiltered.filter(n => n.connected).length;
-    const none = dateFiltered.filter(n => !n.sent && !n.connected).length;
-    
-    return { all, sent, viewed, connected, none };
-  }, [names2, selectedDate, searchQuery, activeSubTab, isInImportantList]);
 
   return (
     <motion.div
@@ -1294,60 +1275,6 @@ export const SimpleList: React.FC<SimpleListProps> = ({
             </motion.div>
           </div>
         )}
-
-        {/* Viewed Note Modal */}
-        <AnimatePresence>
-          {showViewedNoteModal && viewedNoteEntry && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-              onClick={() => setShowViewedNoteModal(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="p-6 border-b border-zinc-800">
-                  <h3 className="text-lg font-semibold text-zinc-100">Viewed Note</h3>
-                  <p className="text-sm text-zinc-500 mt-1">{viewedNoteEntry.name}</p>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  <textarea
-                    value={viewedNoteContent}
-                    onChange={(e) => setViewedNoteContent(e.target.value)}
-                    placeholder="Add a note about this viewed item..."
-                    rows={4}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all resize-none"
-                  />
-                </div>
-
-                <div className="p-6 bg-zinc-900/50 border-t border-zinc-800 flex justify-end gap-3">
-                  <button
-                    onClick={() => setShowViewedNoteModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowViewedNoteModal(false);
-                      // Note: You can add a handler here to save the note if needed
-                    }}
-                    className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg"
-                  >
-                    Done
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Daily Note Modal */}
         <AnimatePresence>
