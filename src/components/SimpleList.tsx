@@ -46,6 +46,10 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'viewed' | 'connected' | 'none'>('all');
   const [showDailyNoteModal, setShowDailyNoteModal] = useState(false);
   const [dailyNoteDraft, setDailyNoteDraft] = useState('');
+  const [showEditEntryModal, setShowEditEntryModal] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState('');
+  const [editingLinkValue, setEditingLinkValue] = useState('');
   const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'overdue' | 'done'>('all');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
@@ -273,6 +277,31 @@ export const SimpleList: React.FC<SimpleListProps> = ({
 
   const handleToggleSent = (id: string) => {
     updateEntryGlobal(id, n => ({ ...n, sent: !n.sent }));
+  };
+
+  const openEditEntryModal = (entry: NameEntry) => {
+    setEditingEntryId(entry.id);
+    setEditingNameValue(entry.name);
+    setEditingLinkValue(entry.link || '');
+    setShowEditEntryModal(true);
+  };
+
+  const handleSaveEditedEntry = () => {
+    if (!editingEntryId) return;
+    const trimmedName = editingNameValue.trim();
+    const trimmedLink = editingLinkValue.trim();
+    if (!trimmedName) return;
+
+    updateEntryGlobal(editingEntryId, n => ({
+      ...n,
+      name: trimmedName,
+      link: trimmedLink || undefined
+    }));
+
+    setShowEditEntryModal(false);
+    setEditingEntryId(null);
+    setEditingNameValue('');
+    setEditingLinkValue('');
   };
 
   const handleCopyNameOnly = async (entry: NameEntry) => {
@@ -1103,6 +1132,13 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                             >
                               {copiedNameId === entry.id ? <Check className="w-4 h-4" /> : <UserCircle className="w-4 h-4" />}
                             </button>
+                            <button
+                              onClick={() => openEditEntryModal(entry)}
+                              className="p-1.5 text-zinc-600 hover:text-blue-400 hover:bg-zinc-800 rounded-md transition-all"
+                              title="Edit name and link"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
                             {activeSubTab !== 'list1' && (
                               <>
                                 <button
@@ -1318,6 +1354,71 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                   <button
                     onClick={handleSaveDailyNote}
                     className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg"
+                  >
+                    Save
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Edit Entry Modal */}
+        <AnimatePresence>
+          {showEditEntryModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowEditEntryModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-zinc-800">
+                  <h3 className="text-lg font-semibold text-zinc-100">Edit Entry</h3>
+                  <p className="text-sm text-zinc-500 mt-1">Update name and captured link</p>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Name</label>
+                    <input
+                      type="text"
+                      value={editingNameValue}
+                      onChange={(e) => setEditingNameValue(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                      placeholder="Enter name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Link</label>
+                    <input
+                      type="text"
+                      value={editingLinkValue}
+                      onChange={(e) => setEditingLinkValue(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
+                <div className="p-6 bg-zinc-900/50 border-t border-zinc-800 flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowEditEntryModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveEditedEntry}
+                    disabled={!editingNameValue.trim()}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg"
                   >
                     Save
                   </button>
