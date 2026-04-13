@@ -17,6 +17,37 @@ type Row = Record<string, unknown>;
 const SIMPLE_LIST_STORAGE_KEY = 'simple_manual_list';
 const SIMPLE_LIST_2_STORAGE_KEY = 'simple_manual_list_2';
 const AUTH_KEY = 'tools_auth_session';
+const QUICK_CONNECT_STORAGE_KEY = 'quick_connect_names';
+const QUICK_CONNECT_MESSAGE_KEY = 'quick_connect_msg';
+const IMPORTANT_LIST_STORAGE_KEY = 'important_list_added_entries';
+
+const TRANSFER_STORAGE_KEYS = [
+  // Simple List (user + guest variants)
+  SIMPLE_LIST_STORAGE_KEY,
+  SIMPLE_LIST_2_STORAGE_KEY,
+  `guest_${SIMPLE_LIST_STORAGE_KEY}`,
+  `guest_${SIMPLE_LIST_2_STORAGE_KEY}`,
+  'manual_list_msg1',
+  'manual_list_msg2',
+  'manual_list1_daily_notes',
+  'manual_list2_daily_notes',
+  IMPORTANT_LIST_STORAGE_KEY,
+  // Quick Connect
+  QUICK_CONNECT_STORAGE_KEY,
+  QUICK_CONNECT_MESSAGE_KEY,
+  // Copy Prompt
+  'linkedin_strategist_input',
+  'linkedin_strategist_statuses',
+  'linkedin_strategist_deleted',
+  'linkedin_strategist_prospects',
+  'linkedin_strategist_ai_messages',
+  'linkedin_strategist_archived_convs',
+  'linkedin_sender',
+  'linkedin_personality',
+  'linkedin_icp',
+  'linkedin_uvp',
+  'linkedin_pasted_links'
+] as const;
 
 const getStorageKey = (baseKey: string, authenticated: boolean) => {
   return authenticated ? baseKey : `guest_${baseKey}`;
@@ -86,8 +117,6 @@ interface ImportantCandidate {
   source: string;
   link?: string;
 }
-
-const IMPORTANT_LIST_STORAGE_KEY = 'important_list_added_entries';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -231,6 +260,20 @@ function App() {
     setImportantEntries(prev => [newEntry, ...prev]);
   };
 
+  const handleToggleImportantList = (candidate: ImportantCandidate) => {
+    const key = `${candidate.name.trim().toLowerCase()}::${candidate.source}`;
+    const exists = importantEntryKeySet.has(key);
+
+    if (exists) {
+      setImportantEntries(prev =>
+        prev.filter(entry => `${entry.name.trim().toLowerCase()}::${entry.source}` !== key)
+      );
+      return;
+    }
+
+    handleAddToImportantList(candidate);
+  };
+
   const handleRemoveImportantEntry = (id: string) => {
     setImportantEntries(prev => prev.filter(entry => entry.id !== id));
   };
@@ -371,11 +414,18 @@ function App() {
   };
 
   const generateExportCode = () => {
+    const storageData: Record<string, string> = {};
+    TRANSFER_STORAGE_KEYS.forEach((key) => {
+      const value = localStorage.getItem(key);
+      if (value !== null) {
+        storageData[key] = value;
+      }
+    });
+
     const exportData = {
-      names,
-      names2,
+      storage: storageData,
       timestamp: new Date().toISOString(),
-      version: '1.0'
+      version: '2.0'
     };
     return btoa(encodeURIComponent(JSON.stringify(exportData)));
   };
@@ -450,15 +500,41 @@ function App() {
     try {
       if (!syncCode.trim()) return;
       const decoded = JSON.parse(decodeURIComponent(atob(syncCode)));
-      
-      if (decoded.names && Array.isArray(decoded.names)) {
-        setNames(decoded.names);
+
+      if (decoded.storage && typeof decoded.storage === 'object') {
+        Object.entries(decoded.storage).forEach(([key, value]) => {
+          if (typeof value === 'string') {
+            localStorage.setItem(key, value);
+          }
+        });
+      } else {
+        // Backward compatibility with old transfer codes
+        if (decoded.names && Array.isArray(decoded.names)) {
+          const key1 = getStorageKey(SIMPLE_LIST_STORAGE_KEY, isAuthenticated);
+          localStorage.setItem(key1, JSON.stringify(decoded.names));
+        }
+        if (decoded.names2 && Array.isArray(decoded.names2)) {
+          const key2 = getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, isAuthenticated);
+          localStorage.setItem(key2, JSON.stringify(decoded.names2));
+        }
       }
-      if (decoded.names2 && Array.isArray(decoded.names2)) {
-        setNames2(decoded.names2);
+
+      // Refresh in-memory state for immediate UI update on Simple List + Important List
+      const key1 = getStorageKey(SIMPLE_LIST_STORAGE_KEY, isAuthenticated);
+      const key2 = getStorageKey(SIMPLE_LIST_2_STORAGE_KEY, isAuthenticated);
+      setNames(loadNamesFromStorage(key1));
+      setNames2(loadNamesFromStorage(key2));
+      const savedImportant = localStorage.getItem(IMPORTANT_LIST_STORAGE_KEY);
+      if (savedImportant) {
+        try {
+          const parsed = JSON.parse(savedImportant);
+          if (Array.isArray(parsed)) setImportantEntries(parsed);
+        } catch {
+          // Ignore malformed imported important-list data
+        }
       }
       
-      setImportStatus({ type: 'success', message: 'Data imported successfully!' });
+      setImportStatus({ type: 'success', message: 'Data imported successfully for Simple List, Copy Prompt, and Quick Connect.' });
       setSyncCode('');
       setTimeout(() => {
         setImportStatus(null);
@@ -1159,9 +1235,9 @@ function App() {
                     setNames={setNames} 
                     names2={names2} 
                     setNames2={setNames2}
-                    onAddToImportantList={(entry, source) => {
+                    onToggleImportantList={(entry, source) => {
                       const sourcePrefix = source === 'Manual List 1' ? 'manual1' : 'manual2';
-                      handleAddToImportantList({
+                      handleToggleImportantList({
                         id: `${sourcePrefix}-${entry.id}`,
                         name: entry.name,
                         link: entry.link,

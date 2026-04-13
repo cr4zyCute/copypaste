@@ -22,7 +22,7 @@ interface SimpleListProps {
   setNames: React.Dispatch<React.SetStateAction<NameEntry[]>>;
   names2: NameEntry[];
   setNames2: React.Dispatch<React.SetStateAction<NameEntry[]>>;
-  onAddToImportantList: (entry: NameEntry, source: 'Manual List 1' | 'Manual List 2') => void;
+  onToggleImportantList: (entry: NameEntry, source: 'Manual List 1' | 'Manual List 2') => void;
   isInImportantList: (entry: NameEntry, source: 'Manual List 1' | 'Manual List 2') => boolean;
 }
 
@@ -31,7 +31,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   setNames,
   names2,
   setNames2,
-  onAddToImportantList,
+  onToggleImportantList,
   isInImportantList
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'list1' | 'list2' | 'reminders'>('list1');
@@ -43,8 +43,13 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   const [copiedId2, setCopiedId2] = useState<string | null>(null);
   const [copiedNameId, setCopiedNameId] = useState<string | null>(null);
   const [copiedCompanyId, setCopiedCompanyId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'connected' | 'none'>('all');
-  const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'done'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'viewed' | 'connected' | 'none'>('all');
+  const [showViewedNoteModal, setShowViewedNoteModal] = useState(false);
+  const [viewedNoteEntry, setViewedNoteEntry] = useState<NameEntry | null>(null);
+  const [viewedNoteContent, setViewedNoteContent] = useState('');
+  const [showDailyNoteModal, setShowDailyNoteModal] = useState(false);
+  const [dailyNoteDraft, setDailyNoteDraft] = useState('');
+  const [followUpFilter, setFollowUpFilter] = useState<'all' | '1' | '2' | '3' | 'overdue' | 'done'>('all');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
   const [showEditMessagesModal, setShowEditMessagesModal] = useState(false);
@@ -94,6 +99,18 @@ export const SimpleList: React.FC<SimpleListProps> = ({
     localStorage.setItem('manual_list_msg1', tempMsg1);
     localStorage.setItem('manual_list_msg2', tempMsg2);
     setShowEditMessagesModal(false);
+  };
+
+  const openDailyNoteModal = () => {
+    if (selectedDate === 'all' || activeSubTab === 'reminders') return;
+    const currentNote = (activeSubTab === 'list1' ? dailyNotes1 : dailyNotes2)[selectedDate] || '';
+    setDailyNoteDraft(currentNote);
+    setShowDailyNoteModal(true);
+  };
+
+  const handleSaveDailyNote = () => {
+    handleUpdateNote(dailyNoteDraft);
+    setShowDailyNoteModal(false);
   };
 
   const handleOpenEditMessages = () => {
@@ -257,6 +274,10 @@ export const SimpleList: React.FC<SimpleListProps> = ({
     }
   };
 
+  const handleToggleSent = (id: string) => {
+    updateEntryGlobal(id, n => ({ ...n, sent: !n.sent }));
+  };
+
   const handleCopyNameOnly = async (entry: NameEntry) => {
     // Extract just the name part by splitting on common separators
     let nameOnly = entry.name;
@@ -414,6 +435,11 @@ export const SimpleList: React.FC<SimpleListProps> = ({
 
           if (followUpFilter === 'all') return true;
           if (followUpFilter === 'done') return !!n.followUpDone;
+          if (followUpFilter === 'overdue') {
+            if (n.followUpDone) return false;
+            const diffDays = getDiffDays(n.connectedAt!);
+            return diffDays < 0;
+          }
           
           // For countdown filters (1, 2, 3), exclude those already done
           if (n.followUpDone) return false;
@@ -436,7 +462,9 @@ export const SimpleList: React.FC<SimpleListProps> = ({
       let matchesStatus = true;
       if (activeSubTab === 'list2') {
         if (statusFilter === 'sent') {
-          matchesStatus = !!n.sent && !n.connected;
+          matchesStatus = !!n.sent;
+        } else if (statusFilter === 'viewed') {
+          matchesStatus = isInImportantList(n, 'Manual List 2');
         } else if (statusFilter === 'connected') {
           matchesStatus = !!n.connected;
         } else if (statusFilter === 'none') {
@@ -468,6 +496,22 @@ export const SimpleList: React.FC<SimpleListProps> = ({
     });
     return counts;
   }, [filteredNames, activeSubTab, selectedDate]);
+
+  const statusCounts = React.useMemo(() => {
+    if (activeSubTab !== 'list2') return { all: 0, sent: 0, viewed: 0, connected: 0, none: 0 };
+    
+    const dateFiltered = selectedDate === 'all' 
+      ? names2.filter(n => n.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      : names2.filter(n => n.addedAt === selectedDate && n.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const all = dateFiltered.length;
+    const sent = dateFiltered.filter(n => n.sent).length;
+    const viewed = dateFiltered.filter(n => isInImportantList(n, 'Manual List 2')).length;
+    const connected = dateFiltered.filter(n => n.connected).length;
+    const none = dateFiltered.filter(n => !n.sent && !n.connected).length;
+    
+    return { all, sent, viewed, connected, none };
+  }, [names2, selectedDate, searchQuery, activeSubTab, isInImportantList]);
 
   return (
     <motion.div
@@ -733,13 +777,13 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                 {selectedDate !== 'all' && activeSubTab !== 'reminders' && (
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest whitespace-nowrap">Note:</span>
-                    <input
-                      type="text"
-                      value={(activeSubTab === 'list1' ? dailyNotes1 : dailyNotes2)[selectedDate] || ''}
-                      onChange={(e) => handleUpdateNote(e.target.value)}
-                      placeholder="Add a daily note..."
-                      className="bg-transparent border-none text-[11px] text-zinc-400 placeholder-zinc-700 focus:outline-none focus:ring-0 p-0 w-full truncate italic"
-                    />
+                    <button
+                      onClick={openDailyNoteModal}
+                      className="bg-transparent border-none text-[11px] text-zinc-400 hover:text-zinc-300 p-0 w-full truncate italic text-left"
+                      title="Click to edit daily note"
+                    >
+                      {(activeSubTab === 'list1' ? dailyNotes1 : dailyNotes2)[selectedDate] || 'Add a daily note...'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -748,7 +792,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                 <div className="flex items-center gap-1 bg-zinc-950/50 p-1 rounded-lg border border-zinc-800/50">
                   <button
                     onClick={() => setStatusFilter('all')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-1.5 ${
                       statusFilter === 'all' 
                         ? 'bg-zinc-800 text-zinc-200 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
@@ -758,7 +802,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                   </button>
                   <button
                     onClick={() => setStatusFilter('sent')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-1.5 ${
                       statusFilter === 'sent' 
                         ? 'bg-zinc-800 text-green-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
@@ -767,8 +811,18 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                     Sent
                   </button>
                   <button
+                    onClick={() => setStatusFilter('viewed')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-1.5 ${
+                      statusFilter === 'viewed' 
+                        ? 'bg-zinc-800 text-green-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Viewed
+                  </button>
+                  <button
                     onClick={() => setStatusFilter('connected')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-1.5 ${
                       statusFilter === 'connected' 
                         ? 'bg-zinc-800 text-blue-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
@@ -778,7 +832,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                   </button>
                   <button
                     onClick={() => setStatusFilter('none')}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all flex items-center gap-1.5 ${
                       statusFilter === 'none' 
                         ? 'bg-zinc-800 text-amber-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-300'
@@ -839,6 +893,16 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                     }`}
                   >
                     Done
+                  </button>
+                  <button
+                    onClick={() => setFollowUpFilter('overdue')}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${
+                      followUpFilter === 'overdue' 
+                        ? 'bg-zinc-800 text-red-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Overdue
                   </button>
                 </div>
               )}
@@ -913,15 +977,14 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                             <button
                               onClick={() => {
                                 const source = activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2';
-                                onAddToImportantList(entry, source);
+                                onToggleImportantList(entry, source);
                               }}
-                              disabled={isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2')}
                               className={`relative w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${
                                 isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2')
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 cursor-not-allowed'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
                                   : 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-400/40'
                               }`}
-                              title={isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2') ? 'Already in Important List' : 'Add to Important List'}
+                              title={isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2') ? 'Remove viewed mark' : 'Mark as viewed'}
                             >
                               {entry.name.charAt(0).toUpperCase()}
                               {isInImportantList(entry, activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2') && (
@@ -952,10 +1015,13 @@ export const SimpleList: React.FC<SimpleListProps> = ({
                               ) : (
                                 <>
                                   {entry.sent && !entry.connected && (
-                                    <span className="flex items-center gap-1 text-[9px] bg-green-500/10 text-green-500/80 px-1.5 py-0.5 rounded border border-green-500/20 uppercase tracking-tight font-bold">
+                                    <button
+                                      onClick={() => handleToggleSent(entry.id)}
+                                      className="flex items-center gap-1 text-[9px] bg-green-500/10 text-green-500/80 px-1.5 py-0.5 rounded border border-green-500/20 uppercase tracking-tight font-bold hover:bg-green-500/20 transition-colors cursor-pointer"
+                                    >
                                       <Check className="w-2.5 h-2.5" />
                                       Sent
-                                    </span>
+                                    </button>
                                   )}
                                   {entry.connected && (
                                     <span className="flex items-center gap-1 text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 uppercase tracking-tight font-bold">
@@ -1228,6 +1294,111 @@ export const SimpleList: React.FC<SimpleListProps> = ({
             </motion.div>
           </div>
         )}
+
+        {/* Viewed Note Modal */}
+        <AnimatePresence>
+          {showViewedNoteModal && viewedNoteEntry && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowViewedNoteModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-zinc-800">
+                  <h3 className="text-lg font-semibold text-zinc-100">Viewed Note</h3>
+                  <p className="text-sm text-zinc-500 mt-1">{viewedNoteEntry.name}</p>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <textarea
+                    value={viewedNoteContent}
+                    onChange={(e) => setViewedNoteContent(e.target.value)}
+                    placeholder="Add a note about this viewed item..."
+                    rows={4}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all resize-none"
+                  />
+                </div>
+
+                <div className="p-6 bg-zinc-900/50 border-t border-zinc-800 flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowViewedNoteModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowViewedNoteModal(false);
+                      // Note: You can add a handler here to save the note if needed
+                    }}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg"
+                  >
+                    Done
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Daily Note Modal */}
+        <AnimatePresence>
+          {showDailyNoteModal && selectedDate !== 'all' && activeSubTab !== 'reminders' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowDailyNoteModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-zinc-800">
+                  <h3 className="text-lg font-semibold text-zinc-100">Daily Note</h3>
+                  <p className="text-sm text-zinc-500 mt-1">{activeSubTab === 'list1' ? 'Manual List 1' : 'Manual List 2'} - {selectedDate}</p>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <textarea
+                    value={dailyNoteDraft}
+                    onChange={(e) => setDailyNoteDraft(e.target.value)}
+                    placeholder="Add a daily note..."
+                    rows={5}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
+                  />
+                </div>
+
+                <div className="p-6 bg-zinc-900/50 border-t border-zinc-800 flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowDailyNoteModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDailyNote}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg"
+                  >
+                    Save
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </AnimatePresence>
     </motion.div>
   );
