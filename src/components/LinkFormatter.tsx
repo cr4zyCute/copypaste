@@ -120,6 +120,30 @@ export const LinkFormatter: React.FC = () => {
                 <UserCircle className="w-5 h-5" />
                 <span className="font-medium">Prospect Reposted:</span>
               </button>
+
+              <button
+                onClick={() => setPrefix('Prospect commented on this Post: ')}
+                className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
+                  prefix === 'Prospect commented on this Post: '
+                    ? 'bg-cyan-600/10 border-cyan-500/50 text-cyan-400'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:border-zinc-700'
+                }`}
+              >
+                <UserCircle className="w-5 h-5" />
+                <span className="font-medium">Prospect commented on this Post:</span>
+              </button>
+
+              <button
+                onClick={() => setPrefix('No Recent Post - Company: ')}
+                className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
+                  prefix === 'No Recent Post - Company: '
+                    ? 'bg-red-600/10 border-red-500/50 text-red-400'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:border-zinc-700'
+                }`}
+              >
+                <Building2 className="w-5 h-5" />
+                <span className="font-medium">No Recent Post - Company:</span>
+              </button>
             </div>
           </div>
 
