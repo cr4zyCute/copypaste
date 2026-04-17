@@ -7,7 +7,7 @@ export const LinkFormatter: React.FC = () => {
   const [prefix, setPrefix] = useState('Company Post: ');
   const [copied, setCopied] = useState(false);
 
-  const isNoRecentPost = prefix === 'No Recent Post - Company: ';
+  const isNoRecentPost = prefix === 'No Recent Post and its Company';
   const formattedText = isNoRecentPost 
     ? prefix.trim()
     : (inputLink.trim() ? `${prefix}${inputLink.trim()}` : '');
@@ -25,6 +25,16 @@ export const LinkFormatter: React.FC = () => {
 
   const handleClear = () => {
     setInputLink('');
+  };
+
+  const handleQuickCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
   };
 
   return (
@@ -137,15 +147,15 @@ export const LinkFormatter: React.FC = () => {
               </button>
 
               <button
-                onClick={() => setPrefix('No Recent Post - Company: ')}
-                className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
-                  prefix === 'No Recent Post - Company: '
+                onClick={() => handleQuickCopy('No Recent Post and its Company')}
+                className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
+                  copied
                     ? 'bg-red-600/10 border-red-500/50 text-red-400'
                     : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:border-zinc-700'
                 }`}
               >
                 <Building2 className="w-5 h-5" />
-                <span className="font-medium">No Recent Post - Company:</span>
+                <span className="font-medium">No Recent Post and its Company</span>
               </button>
             </div>
           </div>
