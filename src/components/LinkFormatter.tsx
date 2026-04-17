@@ -7,7 +7,10 @@ export const LinkFormatter: React.FC = () => {
   const [prefix, setPrefix] = useState('Company Post: ');
   const [copied, setCopied] = useState(false);
 
-  const formattedText = inputLink.trim() ? `${prefix}${inputLink.trim()}` : '';
+  const isNoRecentPost = prefix === 'No Recent Post - Company: ';
+  const formattedText = isNoRecentPost 
+    ? prefix.trim()
+    : (inputLink.trim() ? `${prefix}${inputLink.trim()}` : '');
 
   const handleCopy = async () => {
     if (!formattedText) return;
